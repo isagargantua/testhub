@@ -1,0 +1,129 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         UserRole @default(TESTER)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+enum UserRole {
+  ADMIN
+  TESTER
+  VIEWER
+}
+
+model Project {
+  id          String        @id @default(cuid())
+  name        String
+  description String?
+  status      ProjectStatus @default(ACTIVE)
+  createdById String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  testSuites TestSuite[]
+  testRuns   TestRun[]
+}
+
+enum ProjectStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+model TestSuite {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  projectId   String
+
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  testCases TestCase[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model TestCase {
+  id          String         @id @default(cuid())
+  title       String
+  description String?
+  steps       String?
+  expected    String?
+  priority    Priority       @default(MEDIUM)
+  status      TestCaseStatus @default(ACTIVE)
+  tags        String[]
+
+  suiteId     String
+  suite       TestSuite @relation(fields: [suiteId], references: [id], onDelete: Cascade)
+  createdById String
+
+  results   TestResult[]
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum TestCaseStatus {
+  ACTIVE
+  DEPRECATED
+}
+
+model TestRun {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  status      RunStatus @default(IN_PROGRESS)
+
+  projectId   String
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdById String
+
+  results   TestResult[]
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+}
+
+enum RunStatus {
+  IN_PROGRESS
+  COMPLETED
+  ABORTED
+}
+
+model TestResult {
+  id      String       @id @default(cuid())
+  status  ResultStatus
+  comment String?
+
+  testCaseId String
+  testCase   TestCase @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+
+  runId String
+  run   TestRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  executedAt DateTime @default(now())
+
+  @@unique([runId, testCaseId])
+}
+
+enum ResultStatus {
+  PASS
+  FAIL
+  SKIP
+  BLOCKED
+}

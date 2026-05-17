@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s http://localhost:3002/health)",
+      "Bash(curl -s http://localhost:3001/health)",
+      "Bash(curl -s -X POST http://localhost:3001/api/auth/register -H \"Content-Type: application/json\" -d \"{\\\\\"name\\\\\":\\\\\"Test User\\\\\",\\\\\"email\\\\\":\\\\\"test@example.com\\\\\",\\\\\"password\\\\\":\\\\\"password123\\\\\"}\")",
+      "Bash(curl -s http://localhost:3002/api/projects -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImNtcDhzeDJoODAwMDBreGZhZmc1NWxsbmYiLCJlbWFpbCI6InRlc3RAZXhhbXBsZS5jb20iLCJyb2xlIjoiQURNSU4iLCJpYXQiOjE3Nzg5NjM0NzAsImV4cCI6MTc3ODk2NDM3MH0.rmuPgsHluGwf565PlqbWuasII5LMUVQnYqmoKqB8Hyw')",
+      "Bash(curl -s -X POST http://localhost:3002/api/projects -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImNtcDhzeDJoODAwMDBreGZhZmc1NWxsbmYiLCJlbWFpbCI6InRlc3RAZXhhbXBsZS5jb20iLCJyb2xlIjoiQURNSU4iLCJpYXQiOjE3Nzg5NjM0NzAsImV4cCI6MTc3ODk2NDM3MH0.rmuPgsHluGwf565PlqbWuasII5LMUVQnYqmoKqB8Hyw' -H 'Content-Type: application/json' -d '{\"name\":\"Test Project\",\"description\":\"This is a test project\"}')",
+      "Bash(taskkill /PID 21112 /F)",
+      "Bash(powershell -Command \"Stop-Process -Id 21112 -Force\")",
+      "Bash(netstat -ano)",
+      "Bash(findstr \":3000 :3001 :3002\")",
+      "Bash(npm run *)",
+      "Skill(update-config)",
+      "Skill(update-config:*)",
+      "Bash(npm *)",
+      "Bash(npx *)",
+      "Bash(node *)",
+      "Bash(powershell *)",
+      "PowerShell"
+    ]
+  }
+}

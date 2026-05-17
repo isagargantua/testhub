@@ -1,0 +1,17 @@
+{
+  "name": "testhub",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "gateway",
+    "auth-service",
+    "core-service",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev --prefix gateway\" \"npm run dev --prefix auth-service\" \"npm run dev --prefix core-service\" \"npm run dev --prefix frontend\""
+  },
+  "dependencies": {
+    "concurrently": "^9.0.1"
+  }
+}
