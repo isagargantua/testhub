@@ -1,6 +1,9 @@
 import { useState } from "react";
 
-import { useNavigate } from "react-router-dom";
+import {
+  Link,
+  useNavigate,
+} from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
 
@@ -81,6 +84,16 @@ export default function Login() {
             Login
           </button>
         </form>
+
+        <p className="text-sm text-center text-gray-600 mt-6">
+          New to TestHub?{" "}
+          <Link
+            to="/register"
+            className="text-blue-600 hover:text-blue-700 font-medium"
+          >
+            Create an account
+          </Link>
+        </p>
       </div>
     </div>
   );

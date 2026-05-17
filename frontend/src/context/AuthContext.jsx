@@ -8,6 +8,7 @@ import {
 import {
   getMe,
   login as loginApi,
+  register as registerApi,
 } from "../api/auth";
 
 const AuthContext = createContext();
@@ -61,6 +62,26 @@ export function AuthProvider({ children }) {
     setUser(data.user);
   }
 
+  async function register(name, email, password) {
+    const data = await registerApi({
+      name,
+      email,
+      password,
+    });
+
+    localStorage.setItem(
+      "accessToken",
+      data.accessToken
+    );
+
+    localStorage.setItem(
+      "refreshToken",
+      data.refreshToken
+    );
+
+    setUser(data.user);
+  }
+
   function logout() {
     localStorage.removeItem("accessToken");
 
@@ -75,6 +96,7 @@ export function AuthProvider({ children }) {
         user,
         loading,
         login,
+        register,
         logout,
       }}
     >
