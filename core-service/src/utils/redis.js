@@ -5,6 +5,8 @@ let redis = null;
 try {
   if (process.env.REDIS_URL) {
     redis = new Redis(process.env.REDIS_URL, {
+      connectTimeout: 5000,
+      enableOfflineQueue: false,
       maxRetriesPerRequest: null,
       enableReadyCheck: false,
       retryStrategy(times) {

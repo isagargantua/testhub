@@ -2,6 +2,25 @@ const jwt = require("jsonwebtoken");
 
 const redis = require("../utils/redis");
 
+async function isTokenRevoked(token) {
+  if (!redis) {
+    return false;
+  }
+
+  try {
+    const result = await Promise.race([
+      redis.get(`blacklist:${token}`),
+      new Promise((resolve) => {
+        setTimeout(() => resolve(null), 1000);
+      }),
+    ]);
+
+    return Boolean(result);
+  } catch {
+    return false;
+  }
+}
+
 async function verifyToken(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
@@ -14,14 +33,10 @@ async function verifyToken(req, res, next) {
 
     const token = authHeader.split(" ")[1];
 
-    if (redis) {
-      const isBlacklisted = await redis.get(`blacklist:${token}`);
-
-      if (isBlacklisted) {
-        return res.status(401).json({
-          message: "Token revoked",
-        });
-      }
+    if (await isTokenRevoked(token)) {
+      return res.status(401).json({
+        message: "Token revoked",
+      });
     }
 
     const decoded = jwt.verify(
