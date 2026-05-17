@@ -63,6 +63,9 @@ const proxyOptions = {
   timeout: 30000,
   proxyTimeout: 30000,
   xfwd: true,
+  pathRewrite(path, req) {
+    return req.originalUrl;
+  },
 };
 
 app.use(
