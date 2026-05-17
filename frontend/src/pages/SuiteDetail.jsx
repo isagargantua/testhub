@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useState,
 } from "react";
@@ -31,7 +32,7 @@ export default function SuiteDetail() {
       priority: "MEDIUM",
     });
 
-  async function loadCases() {
+  const loadCases = useCallback(async () => {
     try {
       const data =
         await getTestCases(suiteId);
@@ -40,11 +41,11 @@ export default function SuiteDetail() {
     } catch (error) {
       console.log(error);
     }
-  }
+  }, [suiteId]);
 
   useEffect(() => {
     loadCases();
-  }, [suiteId]);
+  }, [loadCases]);
 
   async function handleCreate(e) {
     e.preventDefault();

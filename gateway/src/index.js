@@ -2,61 +2,90 @@ const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const morgan = require("morgan");
-const proxy = require("express-http-proxy");
+const { createProxyMiddleware } = require("http-proxy-middleware");
 
 dotenv.config();
 
 const app = express();
 
-app.use(cors());
-app.use(express.json());
+const requiredEnv = ["AUTH_SERVICE_URL", "CORE_SERVICE_URL"];
+
+for (const key of requiredEnv) {
+  if (!process.env[key]) {
+    throw new Error(`${key} is required`);
+  }
+}
+
+function normalizeTarget(value) {
+  if (/^https?:\/\//i.test(value)) {
+    return value;
+  }
+
+  return `http://${value}`;
+}
+
+const authServiceTarget = normalizeTarget(process.env.AUTH_SERVICE_URL);
+const coreServiceTarget = normalizeTarget(process.env.CORE_SERVICE_URL);
+
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  process.env.CORS_ORIGIN,
+  "http://localhost:5173",
+]
+  .filter(Boolean)
+  .flatMap((origin) => origin.split(","))
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error(`CORS blocked origin: ${origin}`));
+    },
+    allowedHeaders: ["Content-Type", "Authorization"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  })
+);
+
 app.use(morgan("dev"));
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
-app.use("/api/auth", proxy(process.env.AUTH_SERVICE_URL, {
-  proxyReqPathResolver: (req) => {
-    return req.originalUrl;
-  },
-  proxyTimeout: 10000,
-}));
+const proxyOptions = {
+  changeOrigin: true,
+  timeout: 30000,
+  proxyTimeout: 30000,
+  xfwd: true,
+};
 
-app.use("/api/projects", proxy(process.env.CORE_SERVICE_URL, {
-  proxyReqPathResolver: (req) => {
-    return req.originalUrl;
-  },
-  proxyTimeout: 10000,
-}));
+app.use(
+  "/api/auth",
+  createProxyMiddleware({
+    ...proxyOptions,
+    target: authServiceTarget,
+  })
+);
 
-app.use("/api/suites", proxy(process.env.CORE_SERVICE_URL, {
-  proxyReqPathResolver: (req) => {
-    return req.originalUrl;
-  },
-  proxyTimeout: 10000,
-}));
-
-app.use("/api/testcases", proxy(process.env.CORE_SERVICE_URL, {
-  proxyReqPathResolver: (req) => {
-    return req.originalUrl;
-  },
-  proxyTimeout: 10000,
-}));
-
-app.use("/api/runs", proxy(process.env.CORE_SERVICE_URL, {
-  proxyReqPathResolver: (req) => {
-    return req.originalUrl;
-  },
-  proxyTimeout: 10000,
-}));
-
-app.use("/api/dashboard", proxy(process.env.CORE_SERVICE_URL, {
-  proxyReqPathResolver: (req) => {
-    return req.originalUrl;
-  },
-  proxyTimeout: 10000,
-}));
+app.use(
+  [
+    "/api/projects",
+    "/api/suites",
+    "/api/testcases",
+    "/api/runs",
+    "/api/dashboard",
+  ],
+  createProxyMiddleware({
+    ...proxyOptions,
+    target: coreServiceTarget,
+  })
+);
 
 const PORT = process.env.PORT || 3000;
 

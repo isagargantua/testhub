@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -19,7 +19,7 @@ export default function ProjectDetail() {
 
   const [description, setDescription] = useState("");
 
-  async function loadSuites() {
+  const loadSuites = useCallback(async () => {
     try {
       const data = await getSuites(projectId);
 
@@ -27,11 +27,11 @@ export default function ProjectDetail() {
     } catch (error) {
       console.log(error);
     }
-  }
+  }, [projectId]);
 
   useEffect(() => {
     loadSuites();
-  }, [projectId]);
+  }, [loadSuites]);
 
   async function handleCreate(e) {
     e.preventDefault();

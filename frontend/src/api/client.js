@@ -1,7 +1,11 @@
 import axios from "axios";
 
+const apiUrl = (
+  import.meta.env.VITE_API_URL || "http://localhost:3000"
+).replace(/\/$/, "");
+
 const client = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL: apiUrl,
 });
 
 client.interceptors.request.use((config) => {
@@ -30,7 +34,7 @@ client.interceptors.response.use(
           localStorage.getItem("refreshToken");
 
         const response = await axios.post(
-          `${import.meta.env.VITE_API_URL}/api/auth/refresh`,
+          `${apiUrl}/api/auth/refresh`,
           {
             refreshToken,
           }
@@ -48,7 +52,7 @@ client.interceptors.response.use(
           `Bearer ${newAccessToken}`;
 
         return client(originalRequest);
-      } catch (err) {
+      } catch {
         localStorage.removeItem("accessToken");
         localStorage.removeItem("refreshToken");
 

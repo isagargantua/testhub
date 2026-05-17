@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useState,
 } from "react";
@@ -20,7 +21,7 @@ export default function RunDetail() {
   const [run, setRun] =
     useState(null);
 
-  async function loadRun() {
+  const loadRun = useCallback(async () => {
     try {
       const data = await getRun(runId);
 
@@ -28,11 +29,11 @@ export default function RunDetail() {
     } catch (error) {
       console.log(error);
     }
-  }
+  }, [runId]);
 
   useEffect(() => {
     loadRun();
-  }, [runId]);
+  }, [loadRun]);
 
   async function handleStatus(
     testCaseId,

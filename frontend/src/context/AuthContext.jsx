@@ -31,7 +31,7 @@ export function AuthProvider({ children }) {
         const me = await getMe();
 
         setUser(me);
-      } catch (error) {
+      } catch {
         localStorage.removeItem("accessToken");
         localStorage.removeItem("refreshToken");
       } finally {

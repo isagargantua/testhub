@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useState,
 } from "react";
@@ -32,7 +33,7 @@ export default function TestRuns() {
   const [description, setDescription] =
     useState("");
 
-  async function loadRuns() {
+  const loadRuns = useCallback(async () => {
     try {
       const data = await getRuns(
         projectId
@@ -42,11 +43,11 @@ export default function TestRuns() {
     } catch (error) {
       console.log(error);
     }
-  }
+  }, [projectId]);
 
   useEffect(() => {
     loadRuns();
-  }, [projectId]);
+  }, [loadRuns]);
 
   async function handleCreate(e) {
     e.preventDefault();

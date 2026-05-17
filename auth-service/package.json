@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "main": "src/index.js",
   "scripts": {
+    "build": "prisma generate",
     "dev": "nodemon src/index.js",
+    "start": "node src/index.js",
     "test": "node --test"
   },
   "dependencies": {
