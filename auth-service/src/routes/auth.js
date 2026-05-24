@@ -7,7 +7,10 @@ const jwt = require("jsonwebtoken");
 
 const { PrismaClient } = require("@prisma/client");
 
-const authLimiter = require("../middleware/rateLimiter");
+const {
+  authLimiter,
+  authActionLimiter,
+} = require("../middleware/rateLimiter");
 
 const redis = require("../utils/redis");
 
@@ -21,10 +24,9 @@ const prisma = new PrismaClient();
 
 const router = express.Router();
 
-router.use(authLimiter);
-
 router.post(
   "/register",
+  authActionLimiter,
   [
     body("name").notEmpty(),
     body("email").isEmail(),
@@ -93,6 +95,7 @@ router.post(
 
 router.post(
   "/login",
+  authActionLimiter,
   [
     body("email").isEmail(),
     body("password").notEmpty(),
@@ -156,7 +159,7 @@ router.post(
   }
 );
 
-router.get("/me", async (req, res) => {
+router.get("/me", authLimiter, async (req, res) => {
   try {
     const authHeader = req.headers.authorization;
 
@@ -198,7 +201,7 @@ router.get("/me", async (req, res) => {
   }
 });
 
-router.post("/refresh", async (req, res) => {
+router.post("/refresh", authLimiter, async (req, res) => {
   try {
     const { refreshToken } = req.body;
 
@@ -234,7 +237,7 @@ router.post("/refresh", async (req, res) => {
   }
 });
 
-router.post("/logout", async (req, res) => {
+router.post("/logout", authLimiter, async (req, res) => {
   try {
     const authHeader = req.headers.authorization;
 
