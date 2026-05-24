@@ -7,10 +7,7 @@ const jwt = require("jsonwebtoken");
 
 const { PrismaClient } = require("@prisma/client");
 
-const {
-  authLimiter,
-  authActionLimiter,
-} = require("../middleware/rateLimiter");
+const { authLimiter, authActionLimiter } = require("../middleware/rateLimiter");
 
 const redis = require("../utils/redis");
 
@@ -26,7 +23,6 @@ const router = express.Router();
 
 router.post(
   "/register",
-  authActionLimiter,
   [
     body("name").notEmpty(),
     body("email").isEmail(),
@@ -90,16 +86,12 @@ router.post(
         message: "Internal server error",
       });
     }
-  }
+  },
 );
 
 router.post(
   "/login",
-  authActionLimiter,
-  [
-    body("email").isEmail(),
-    body("password").notEmpty(),
-  ],
+  [body("email").isEmail(), body("password").notEmpty()],
   async (req, res) => {
     try {
       const errors = validationResult(req);
@@ -124,10 +116,7 @@ router.post(
         });
       }
 
-      const isMatch = await bcrypt.compare(
-        password,
-        user.passwordHash
-      );
+      const isMatch = await bcrypt.compare(password, user.passwordHash);
 
       if (!isMatch) {
         return res.status(401).json({
@@ -156,7 +145,7 @@ router.post(
         message: "Internal server error",
       });
     }
-  }
+  },
 );
 
 router.get("/me", authLimiter, async (req, res) => {
@@ -171,10 +160,7 @@ router.get("/me", authLimiter, async (req, res) => {
 
     const token = authHeader.split(" ")[1];
 
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_ACCESS_SECRET
-    );
+    const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
 
     const user = await prisma.user.findUnique({
       where: {
@@ -201,7 +187,7 @@ router.get("/me", authLimiter, async (req, res) => {
   }
 });
 
-router.post("/refresh", authLimiter, async (req, res) => {
+router.post("/refresh", async (req, res) => {
   try {
     const { refreshToken } = req.body;
 
@@ -237,7 +223,7 @@ router.post("/refresh", authLimiter, async (req, res) => {
   }
 });
 
-router.post("/logout", authLimiter, async (req, res) => {
+router.post("/logout", async (req, res) => {
   try {
     const authHeader = req.headers.authorization;
 
@@ -256,19 +242,14 @@ router.post("/logout", authLimiter, async (req, res) => {
         const ttl = decoded.exp - Math.floor(Date.now() / 1000);
 
         if (ttl > 0) {
-Promise.race([
-  redis.set(
-    `blacklist:${token}`,
-    "true",
-    "EX",
-    ttl
-  ),
-  new Promise((_, reject) =>
-    setTimeout(() => reject(new Error("Redis timeout")), 1000)
-  ),
-]).catch(() => {
-  console.log("Redis blacklist skipped");
-});
+          Promise.race([
+            redis.set(`blacklist:${token}`, "true", "EX", ttl),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error("Redis timeout")), 1000),
+            ),
+          ]).catch(() => {
+            console.log("Redis blacklist skipped");
+          });
         }
       }
     } catch (err) {
