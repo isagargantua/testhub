@@ -32,14 +32,23 @@ export default function SuiteDetail() {
       priority: "MEDIUM",
     });
 
+  const [error, setError] = useState("");
+
+  const [submitting, setSubmitting] =
+    useState(false);
+
+  const [deletingId, setDeletingId] =
+    useState("");
+
   const loadCases = useCallback(async () => {
     try {
       const data =
         await getTestCases(suiteId);
 
       setCases(data.items);
-    } catch (error) {
-      console.log(error);
+      setError("");
+    } catch {
+      setError("Could not load test cases.");
     }
   }, [suiteId]);
 
@@ -51,6 +60,9 @@ export default function SuiteDetail() {
     e.preventDefault();
 
     try {
+      setSubmitting(true);
+      setError("");
+
       await createTestCase(
         suiteId,
         form
@@ -67,18 +79,25 @@ export default function SuiteDetail() {
       });
 
       loadCases();
-    } catch (error) {
-      console.log(error);
+    } catch {
+      setError("Could not create the test case.");
+    } finally {
+      setSubmitting(false);
     }
   }
 
   async function handleDelete(id) {
     try {
+      setDeletingId(id);
+      setError("");
+
       await deleteTestCase(id);
 
       loadCases();
-    } catch (error) {
-      console.log(error);
+    } catch {
+      setError("Could not delete the test case.");
+    } finally {
+      setDeletingId("");
     }
   }
 
@@ -96,6 +115,12 @@ export default function SuiteDetail() {
           Create Test Case
         </button>
       </div>
+
+      {error && (
+        <div className="rounded-[18px] border border-[rgba(168,80,63,0.18)] bg-[rgba(168,80,63,0.08)] px-4 py-3 text-sm text-[#8b4335]">
+          {error}
+        </div>
+      )}
 
       <div className="space-y-4">
         {cases.map((testcase) => (
@@ -144,6 +169,7 @@ export default function SuiteDetail() {
               </div>
 
               <button
+                type="button"
                 onClick={() =>
                   handleDelete(
                     testcase.id
@@ -151,7 +177,7 @@ export default function SuiteDetail() {
                 }
                 className="text-red-500"
               >
-                Delete
+                {deletingId === testcase.id ? "Deleting..." : "Delete"}
               </button>
             </div>
           </div>
@@ -191,7 +217,7 @@ export default function SuiteDetail() {
             </label>
 
             <textarea
-              className="input"
+              className="textarea"
               value={
                 form.description
               }
@@ -211,7 +237,7 @@ export default function SuiteDetail() {
             </label>
 
             <textarea
-              className="input"
+              className="textarea"
               value={form.steps}
               onChange={(e) =>
                 setForm({
@@ -229,7 +255,7 @@ export default function SuiteDetail() {
             </label>
 
             <textarea
-              className="input"
+              className="textarea"
               value={form.expected}
               onChange={(e) =>
                 setForm({
@@ -272,8 +298,8 @@ export default function SuiteDetail() {
             </select>
           </div>
 
-          <button className="btn w-full">
-            Create
+          <button className="btn w-full" disabled={submitting}>
+            {submitting ? "Creating..." : "Create"}
           </button>
         </form>
       </Modal>

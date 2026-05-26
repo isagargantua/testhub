@@ -11,6 +11,7 @@ import {
 
 import {
   createRun,
+  deleteRun,
   getRuns,
 } from "../api/runs";
 
@@ -33,6 +34,14 @@ export default function TestRuns() {
   const [description, setDescription] =
     useState("");
 
+  const [error, setError] = useState("");
+
+  const [submitting, setSubmitting] =
+    useState(false);
+
+  const [deletingId, setDeletingId] =
+    useState("");
+
   const loadRuns = useCallback(async () => {
     try {
       const data = await getRuns(
@@ -40,8 +49,9 @@ export default function TestRuns() {
       );
 
       setRuns(data);
-    } catch (error) {
-      console.log(error);
+      setError("");
+    } catch {
+      setError("Could not load runs.");
     }
   }, [projectId]);
 
@@ -53,6 +63,9 @@ export default function TestRuns() {
     e.preventDefault();
 
     try {
+      setSubmitting(true);
+      setError("");
+
       await createRun(projectId, {
         name,
         description,
@@ -65,8 +78,24 @@ export default function TestRuns() {
       setDescription("");
 
       loadRuns();
-    } catch (error) {
-      console.log(error);
+    } catch {
+      setError("Could not create the run.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleDelete(id) {
+    try {
+      setDeletingId(id);
+      setError("");
+
+      await deleteRun(id);
+      loadRuns();
+    } catch {
+      setError("Could not delete the run.");
+    } finally {
+      setDeletingId("");
     }
   }
 
@@ -84,6 +113,12 @@ export default function TestRuns() {
           Create Run
         </button>
       </div>
+
+      {error && (
+        <div className="rounded-[18px] border border-[rgba(168,80,63,0.18)] bg-[rgba(168,80,63,0.08)] px-4 py-3 text-sm text-[#8b4335]">
+          {error}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {runs.map((run) => (
@@ -107,6 +142,17 @@ export default function TestRuns() {
                 {run.status}
               </span>
             </div>
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDelete(run.id);
+              }}
+              className="mt-4 text-red-500"
+            >
+              {deletingId === run.id ? "Deleting..." : "Delete"}
+            </button>
           </div>
         ))}
       </div>
@@ -140,7 +186,7 @@ export default function TestRuns() {
             </label>
 
             <textarea
-              className="input"
+              className="textarea"
               value={description}
               onChange={(e) =>
                 setDescription(
@@ -150,8 +196,8 @@ export default function TestRuns() {
             />
           </div>
 
-          <button className="btn w-full">
-            Create Run
+          <button className="btn w-full" disabled={submitting}>
+            {submitting ? "Creating..." : "Create Run"}
           </button>
         </form>
       </Modal>

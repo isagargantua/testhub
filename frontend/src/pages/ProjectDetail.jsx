@@ -19,13 +19,20 @@ export default function ProjectDetail() {
 
   const [description, setDescription] = useState("");
 
+  const [error, setError] = useState("");
+
+  const [submitting, setSubmitting] = useState(false);
+
+  const [deletingId, setDeletingId] = useState("");
+
   const loadSuites = useCallback(async () => {
     try {
       const data = await getSuites(projectId);
 
       setSuites(data);
-    } catch (error) {
-      console.log(error);
+      setError("");
+    } catch {
+      setError("Could not load suites.");
     }
   }, [projectId]);
 
@@ -37,6 +44,9 @@ export default function ProjectDetail() {
     e.preventDefault();
 
     try {
+      setSubmitting(true);
+      setError("");
+
       await createSuite(projectId, {
         name,
         description,
@@ -49,18 +59,25 @@ export default function ProjectDetail() {
       setOpen(false);
 
       loadSuites();
-    } catch (error) {
-      console.log(error);
+    } catch {
+      setError("Could not create the suite.");
+    } finally {
+      setSubmitting(false);
     }
   }
 
   async function handleDelete(id) {
     try {
+      setDeletingId(id);
+      setError("");
+
       await deleteSuite(id);
 
       loadSuites();
-    } catch (error) {
-      console.log(error);
+    } catch {
+      setError("Could not delete the suite.");
+    } finally {
+      setDeletingId("");
     }
   }
 
@@ -83,6 +100,12 @@ export default function ProjectDetail() {
         </div>
       </div>
 
+      {error && (
+        <div className="rounded-[18px] border border-[rgba(168,80,63,0.18)] bg-[rgba(168,80,63,0.08)] px-4 py-3 text-sm text-[#8b4335]">
+          {error}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {suites.map((suite) => (
           <div
@@ -95,6 +118,7 @@ export default function ProjectDetail() {
             <p className="text-gray-600 mt-2">{suite.description}</p>
 
             <button
+              type="button"
               onClick={(e) => {
                 e.stopPropagation();
 
@@ -102,7 +126,7 @@ export default function ProjectDetail() {
               }}
               className="text-red-500 mt-4"
             >
-              Delete
+              {deletingId === suite.id ? "Deleting..." : "Delete"}
             </button>
           </div>
         ))}
@@ -124,13 +148,15 @@ export default function ProjectDetail() {
             <label className="label">Description</label>
 
             <textarea
-              className="input"
+              className="textarea"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
           </div>
 
-          <button className="btn w-full">Create</button>
+          <button className="btn w-full" disabled={submitting}>
+            {submitting ? "Creating..." : "Create"}
+          </button>
         </form>
       </Modal>
     </div>

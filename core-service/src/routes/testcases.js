@@ -133,7 +133,7 @@ router.put(
 
 router.delete(
   "/:id",
-  requireRole("ADMIN"),
+  requireRole("ADMIN", "TESTER"),
   async (req, res) => {
     try {
       await prisma.testCase.delete({

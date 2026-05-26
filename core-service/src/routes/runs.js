@@ -218,7 +218,7 @@ router.put("/:id", requireRole("ADMIN", "TESTER"), async (req, res) => {
   }
 });
 
-router.delete("/:id", requireRole("ADMIN"), async (req, res) => {
+router.delete("/:id", requireRole("ADMIN", "TESTER"), async (req, res) => {
   try {
     await prisma.testRun.delete({
       where: {

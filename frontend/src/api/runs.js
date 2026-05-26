@@ -39,3 +39,11 @@ export async function updateResult(
 
   return response.data;
 }
+
+export async function deleteRun(id) {
+  const response = await client.delete(
+    `/api/runs/${id}`
+  );
+
+  return response.data;
+}
