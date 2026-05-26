@@ -86,10 +86,17 @@ export default function Projects() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">
-          Projects
-        </h1>
+      <div className="page-heading">
+        <div>
+          <div className="eyebrow">Workspaces</div>
+          <h1 className="display-title mt-2 text-4xl md:text-5xl">
+            Projects
+          </h1>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-[#75675a] md:text-base">
+            Organize test assets by product surface, keep environments tidy,
+            and spin up focused automation spaces without clutter.
+          </p>
+        </div>
 
         <button
           className="btn"
@@ -99,39 +106,60 @@ export default function Projects() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
         {projects.map((project) => (
           <div
             key={project.id}
-            className="card cursor-pointer"
+            className="card cursor-pointer transition duration-200 hover:-translate-y-1"
             onClick={() =>
                 navigate(`/projects/${project.id}`)
             }
           >
-            <h2 className="text-xl font-bold">
-              {project.name}
-            </h2>
-
-            <p className="text-gray-600 mt-2">
-              {project.description}
-            </p>
-
-            <div className="mt-4 flex justify-between items-center">
-              <span className="text-sm bg-blue-100 text-blue-700 px-2 py-1 rounded">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="eyebrow">Project</div>
+                <h2 className="mt-2 display-title text-3xl leading-tight">
+                  {project.name}
+                </h2>
+              </div>
+              <span className="rounded-full bg-[rgba(201,111,59,0.12)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#a25a30]">
                 {project.status}
               </span>
+            </div>
 
+            <p className="mt-4 min-h-[72px] text-sm leading-6 text-[#6f6255]">
+              {project.description || "No description yet. Use this space to define the testing focus and environment intent."}
+            </p>
+
+            <div className="mt-6 flex justify-between items-center">
+              <span className="text-xs uppercase tracking-[0.22em] text-[#8a7a69]">
+                Open workspace
+              </span>
               <button
-                onClick={() =>
-                  handleDelete(project.id)
-                }
-                className="text-red-500"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete(project.id);
+                }}
+                className="btn-secondary text-[#8e3f31]"
               >
                 Delete
               </button>
             </div>
           </div>
         ))}
+
+        {!projects.length && (
+          <div className="card md:col-span-2 xl:col-span-3">
+            <div className="eyebrow">Empty state</div>
+            <h2 className="mt-2 display-title text-3xl">
+              No projects yet
+            </h2>
+            <p className="mt-3 max-w-xl text-sm leading-6 text-[#75675a]">
+              Create a first project to start grouping suites, cases, and runs
+              into a clean testing workspace.
+            </p>
+          </div>
+        )}
       </div>
 
       <Modal
@@ -163,7 +191,7 @@ export default function Projects() {
             </label>
 
             <textarea
-              className="input"
+              className="textarea"
               value={description}
               onChange={(e) =>
                 setDescription(

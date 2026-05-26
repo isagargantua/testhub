@@ -1,23 +1,23 @@
 const styles = {
-  PASS: "bg-green-100 text-green-700",
-  FAIL: "bg-red-100 text-red-700",
-  SKIP: "bg-yellow-100 text-yellow-700",
-  BLOCKED: "bg-gray-200 text-gray-700",
-  IN_PROGRESS: "bg-blue-100 text-blue-700",
-  COMPLETED: "bg-green-100 text-green-700",
-  ACTIVE: "bg-green-100 text-green-700",
-  ARCHIVED: "bg-gray-200 text-gray-700",
-  LOW: "bg-gray-100 text-gray-700",
-  MEDIUM: "bg-blue-100 text-blue-700",
-  HIGH: "bg-orange-100 text-orange-700",
-  CRITICAL: "bg-red-100 text-red-700",
+  PASS: "bg-[rgba(88,137,102,0.14)] text-[#466451]",
+  FAIL: "bg-[rgba(168,80,63,0.14)] text-[#8c4638]",
+  SKIP: "bg-[rgba(203,153,71,0.16)] text-[#946d2f]",
+  BLOCKED: "bg-[rgba(96,94,114,0.14)] text-[#555365]",
+  IN_PROGRESS: "bg-[rgba(88,112,155,0.14)] text-[#455d87]",
+  COMPLETED: "bg-[rgba(88,137,102,0.14)] text-[#466451]",
+  ACTIVE: "bg-[rgba(88,137,102,0.14)] text-[#466451]",
+  ARCHIVED: "bg-[rgba(96,94,114,0.14)] text-[#555365]",
+  LOW: "bg-[rgba(120,116,108,0.14)] text-[#666052]",
+  MEDIUM: "bg-[rgba(88,112,155,0.14)] text-[#455d87]",
+  HIGH: "bg-[rgba(201,111,59,0.14)] text-[#9d552c]",
+  CRITICAL: "bg-[rgba(168,80,63,0.14)] text-[#8c4638]",
 };
 
 export default function Badge({ children }) {
   return (
     <span
-      className={`px-2 py-1 rounded text-sm font-medium ${
-        styles[children] || "bg-gray-100 text-gray-700"
+      className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${
+        styles[children] || "bg-[rgba(120,116,108,0.14)] text-[#666052]"
       }`}
     >
       {children}

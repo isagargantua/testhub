@@ -31,7 +31,14 @@ export default function Dashboard() {
   }, []);
 
   if (!stats) {
-    return <div>Loading dashboard...</div>;
+    return (
+      <div className="card">
+        <div className="eyebrow">Dashboard</div>
+        <div className="mt-3 display-title text-3xl">
+          Loading dashboard...
+        </div>
+      </div>
+    );
   }
 
   const chartData = [
@@ -66,37 +73,68 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold">
-        Dashboard
-      </h1>
+      <div className="page-heading">
+        <div>
+          <div className="eyebrow">Command center</div>
+          <h1 className="display-title mt-2 text-4xl md:text-5xl">
+            Dashboard
+          </h1>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-[#75675a] md:text-base">
+            Track execution health, recent momentum, and the shape of your test
+            estate in one composed view.
+          </p>
+        </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="card-soft min-w-[220px]">
+          <div className="eyebrow">Signal</div>
+          <div className="mt-3 display-title text-3xl">
+            {stats.passRatePercent}%
+          </div>
+          <p className="mt-2 text-sm text-[#75675a]">
+            Current overall pass rate across recorded runs.
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatsCard
           title="Projects"
           value={stats.totalProjects}
+          detail="Active workspaces currently tracked"
         />
 
         <StatsCard
           title="Test Cases"
           value={stats.totalTestCases}
+          detail="Scenarios available for execution"
         />
 
         <StatsCard
           title="Runs"
           value={stats.totalRuns}
+          detail="Recorded executions across all projects"
         />
 
         <StatsCard
           title="Pass Rate"
           value={`${stats.passRatePercent}%`}
+          detail="Success ratio based on completed outcomes"
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="card h-96">
-          <h2 className="text-xl font-bold mb-4">
-            Result Breakdown
-          </h2>
+        <div className="card h-[28rem]">
+          <div className="mb-4 flex items-end justify-between gap-4">
+            <div>
+              <div className="eyebrow">Outcomes</div>
+              <h2 className="display-title mt-2 text-3xl">
+                Result Breakdown
+              </h2>
+            </div>
+            <div className="rounded-full bg-[rgba(201,111,59,0.12)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-[#a55d31]">
+              Live mix
+            </div>
+          </div>
 
           <ResponsiveContainer
             width="100%"
@@ -121,29 +159,45 @@ export default function Dashboard() {
                 )}
               </Pie>
 
-              <Tooltip />
+              <Tooltip
+                contentStyle={{
+                  borderRadius: 18,
+                  border: "1px solid rgba(80,67,43,0.12)",
+                  background: "rgba(255,250,243,0.96)",
+                  boxShadow:
+                    "0 18px 38px rgba(44, 28, 12, 0.12)",
+                }}
+              />
             </PieChart>
           </ResponsiveContainer>
         </div>
 
         <div className="card">
-          <h2 className="text-xl font-bold mb-4">
-            Recent Runs
-          </h2>
+          <div className="mb-4">
+            <div className="eyebrow">Activity</div>
+            <h2 className="display-title mt-2 text-3xl">
+              Recent Runs
+            </h2>
+          </div>
 
           <div className="space-y-3">
             {stats.recentRuns.map(
               (run) => (
                 <div
                   key={run.id}
-                  className="border rounded p-3"
+                  className="card-soft"
                 >
-                  <div className="font-semibold">
+                  <div className="font-semibold text-[#2f2419]">
                     {run.name}
                   </div>
 
-                  <div className="text-sm text-gray-500">
-                    {run.status}
+                  <div className="mt-2 flex items-center justify-between gap-3">
+                    <div className="text-sm text-[#75675a]">
+                      Execution status
+                    </div>
+                    <div className="rounded-full bg-[rgba(102,120,95,0.14)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#55644d]">
+                      {run.status}
+                    </div>
                   </div>
                 </div>
               )

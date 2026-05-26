@@ -29,15 +29,18 @@ export default function Modal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg w-full max-w-lg p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(20,18,15,0.38)] p-4 backdrop-blur-sm">
+      <div className="card w-full max-w-lg">
+        <div className="mb-5 flex items-center justify-between gap-4">
+          <div>
+            <div className="eyebrow">Create</div>
+            <h2 className="mt-2 display-title text-3xl">
             {title}
-          </h2>
+            </h2>
+          </div>
 
-          <button onClick={onClose}>
-            x
+          <button onClick={onClose} className="btn-secondary px-3">
+            Close
           </button>
         </div>
 
