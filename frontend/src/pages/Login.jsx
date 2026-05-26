@@ -21,6 +21,10 @@ function getErrorMessage(error) {
       .join(", ");
   }
 
+  if (error?.response?.status === 429) {
+    return "Too many login attempts. Please wait and try again.";
+  }
+
   return "Could not log in. Please try again.";
 }
 
