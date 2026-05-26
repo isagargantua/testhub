@@ -1,4 +1,9 @@
 import axios from "axios";
+import {
+  clearTokens,
+  getAccessToken,
+  getRefreshToken,
+} from "./tokenStorage";
 
 const apiUrl = (
   import.meta.env.VITE_API_URL || "http://localhost:3000"
@@ -8,8 +13,10 @@ const client = axios.create({
   baseURL: apiUrl,
 });
 
+let refreshRequest = null;
+
 client.interceptors.request.use((config) => {
-  const token = localStorage.getItem("accessToken");
+  const token = getAccessToken();
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -22,39 +29,50 @@ client.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+    const requestUrl = originalRequest?.url || "";
+    const isAuthRequest =
+      requestUrl.includes("/api/auth/login") ||
+      requestUrl.includes("/api/auth/register") ||
+      requestUrl.includes("/api/auth/refresh") ||
+      requestUrl.includes("/api/auth/logout");
 
     if (
       error.response?.status === 401 &&
-      !originalRequest._retry
+      !originalRequest?._retry &&
+      !isAuthRequest
     ) {
       originalRequest._retry = true;
 
       try {
-        const refreshToken =
-          localStorage.getItem("refreshToken");
+        const refreshToken = getRefreshToken();
 
-        const response = await axios.post(
-          `${apiUrl}/api/auth/refresh`,
-          {
-            refreshToken,
-          }
-        );
+        if (!refreshToken) {
+          throw new Error("Missing refresh token");
+        }
+
+        if (!refreshRequest) {
+          refreshRequest = axios
+            .post(`${apiUrl}/api/auth/refresh`, {
+              refreshToken,
+            })
+            .finally(() => {
+              refreshRequest = null;
+            });
+        }
+
+        const response = await refreshRequest;
 
         const newAccessToken =
           response.data.accessToken;
 
-        localStorage.setItem(
-          "accessToken",
-          newAccessToken
-        );
+        localStorage.setItem("accessToken", newAccessToken);
 
         originalRequest.headers.Authorization =
           `Bearer ${newAccessToken}`;
 
         return client(originalRequest);
       } catch {
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("refreshToken");
+        clearTokens();
 
         window.location.href = "/login";
       }

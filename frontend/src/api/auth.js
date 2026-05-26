@@ -25,3 +25,19 @@ export async function getMe() {
 
   return response.data;
 }
+
+export async function logout(accessToken) {
+  const response = await client.post(
+    "/api/auth/logout",
+    null,
+    {
+      headers: accessToken
+        ? {
+            Authorization: `Bearer ${accessToken}`,
+          }
+        : undefined,
+    }
+  );
+
+  return response.data;
+}

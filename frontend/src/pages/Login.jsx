@@ -7,6 +7,23 @@ import {
 
 import { useAuth } from "../context/AuthContext";
 
+function getErrorMessage(error) {
+  const response = error?.response?.data;
+
+  if (response?.message) {
+    return response.message;
+  }
+
+  if (Array.isArray(response?.errors)) {
+    return response.errors
+      .map((item) => item.msg || item.message)
+      .filter(Boolean)
+      .join(", ");
+  }
+
+  return "Could not log in. Please try again.";
+}
+
 export default function Login() {
   const { login } = useAuth();
 
@@ -19,17 +36,23 @@ export default function Login() {
 
   const [error, setError] = useState("");
 
+  const [submitting, setSubmitting] =
+    useState(false);
+
   async function handleSubmit(e) {
     e.preventDefault();
 
     try {
       setError("");
+      setSubmitting(true);
 
-      await login(email, password);
+      await login(email.trim(), password);
 
       navigate("/");
-    } catch {
-      setError("Invalid credentials");
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -59,6 +82,7 @@ export default function Login() {
               type="email"
               className="input"
               value={email}
+              autoComplete="email"
               onChange={(e) =>
                 setEmail(e.target.value)
               }
@@ -74,14 +98,20 @@ export default function Login() {
               type="password"
               className="input"
               value={password}
+              autoComplete="current-password"
               onChange={(e) =>
                 setPassword(e.target.value)
               }
             />
           </div>
 
-          <button className="btn w-full">
-            Login
+          <button
+            className="btn w-full disabled:opacity-60 disabled:cursor-not-allowed"
+            disabled={submitting}
+          >
+            {submitting
+              ? "Logging in..."
+              : "Login"}
           </button>
         </form>
 

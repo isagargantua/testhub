@@ -8,8 +8,14 @@ import {
 import {
   getMe,
   login as loginApi,
+  logout as logoutApi,
   register as registerApi,
 } from "../api/auth";
+import {
+  clearTokens,
+  getAccessToken,
+  setTokens,
+} from "../api/tokenStorage";
 
 const AuthContext = createContext();
 
@@ -21,8 +27,7 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     async function loadUser() {
       try {
-        const token =
-          localStorage.getItem("accessToken");
+        const token = getAccessToken();
 
         if (!token) {
           setLoading(false);
@@ -33,8 +38,8 @@ export function AuthProvider({ children }) {
 
         setUser(me);
       } catch {
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("refreshToken");
+        clearTokens();
+        setUser(null);
       } finally {
         setLoading(false);
       }
@@ -49,15 +54,7 @@ export function AuthProvider({ children }) {
       password,
     });
 
-    localStorage.setItem(
-      "accessToken",
-      data.accessToken
-    );
-
-    localStorage.setItem(
-      "refreshToken",
-      data.refreshToken
-    );
+    setTokens(data);
 
     setUser(data.user);
   }
@@ -69,25 +66,24 @@ export function AuthProvider({ children }) {
       password,
     });
 
-    localStorage.setItem(
-      "accessToken",
-      data.accessToken
-    );
-
-    localStorage.setItem(
-      "refreshToken",
-      data.refreshToken
-    );
+    setTokens(data);
 
     setUser(data.user);
   }
 
-  function logout() {
-    localStorage.removeItem("accessToken");
+  async function logout() {
+    const accessToken = getAccessToken();
 
-    localStorage.removeItem("refreshToken");
-
+    clearTokens();
     setUser(null);
+
+    try {
+      if (accessToken) {
+        await logoutApi(accessToken);
+      }
+    } catch {
+      // Local logout already happened, so a network failure is non-blocking.
+    }
   }
 
   return (

@@ -7,7 +7,10 @@ const jwt = require("jsonwebtoken");
 
 const { PrismaClient } = require("@prisma/client");
 
-const { authLimiter, authActionLimiter } = require("../middleware/rateLimiter");
+const {
+  authLimiter,
+  authActionLimiter,
+} = require("../middleware/rateLimiter");
 
 const redis = require("../utils/redis");
 
@@ -21,11 +24,22 @@ const prisma = new PrismaClient();
 
 const router = express.Router();
 
+function getBearerToken(req) {
+  const authHeader = req.headers.authorization || "";
+
+  if (!authHeader.startsWith("Bearer ")) {
+    return null;
+  }
+
+  return authHeader.slice(7).trim() || null;
+}
+
 router.post(
   "/register",
+  authActionLimiter,
   [
-    body("name").notEmpty(),
-    body("email").isEmail(),
+    body("name").trim().notEmpty(),
+    body("email").trim().isEmail().normalizeEmail(),
     body("password").isLength({ min: 6 }),
   ],
   async (req, res) => {
@@ -38,7 +52,9 @@ router.post(
         });
       }
 
-      const { name, email, password } = req.body;
+      const name = req.body.name.trim();
+      const email = req.body.email.trim().toLowerCase();
+      const { password } = req.body;
 
       const existingUser = await prisma.user.findUnique({
         where: {
@@ -91,7 +107,11 @@ router.post(
 
 router.post(
   "/login",
-  [body("email").isEmail(), body("password").notEmpty()],
+  authActionLimiter,
+  [
+    body("email").trim().isEmail().normalizeEmail(),
+    body("password").notEmpty(),
+  ],
   async (req, res) => {
     try {
       const errors = validationResult(req);
@@ -102,7 +122,8 @@ router.post(
         });
       }
 
-      const { email, password } = req.body;
+      const email = req.body.email.trim().toLowerCase();
+      const { password } = req.body;
 
       const user = await prisma.user.findUnique({
         where: {
@@ -150,15 +171,13 @@ router.post(
 
 router.get("/me", authLimiter, async (req, res) => {
   try {
-    const authHeader = req.headers.authorization;
+    const token = getBearerToken(req);
 
-    if (!authHeader) {
+    if (!token) {
       return res.status(401).json({
         message: "No token provided",
       });
     }
-
-    const token = authHeader.split(" ")[1];
 
     const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
 
@@ -187,7 +206,7 @@ router.get("/me", authLimiter, async (req, res) => {
   }
 });
 
-router.post("/refresh", async (req, res) => {
+router.post("/refresh", authActionLimiter, async (req, res) => {
   try {
     const { refreshToken } = req.body;
 
@@ -223,17 +242,15 @@ router.post("/refresh", async (req, res) => {
   }
 });
 
-router.post("/logout", async (req, res) => {
+router.post("/logout", authActionLimiter, async (req, res) => {
   try {
-    const authHeader = req.headers.authorization;
+    const token = getBearerToken(req);
 
-    if (!authHeader) {
+    if (!token) {
       return res.status(401).json({
         message: "No token provided",
       });
     }
-
-    const token = authHeader.split(" ")[1];
 
     try {
       const decoded = jwt.decode(token);

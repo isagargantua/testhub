@@ -9,7 +9,7 @@ function generateAccessToken(user) {
     },
     process.env.JWT_ACCESS_SECRET,
     {
-      expiresIn: "15m",
+      expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || "8h",
     }
   );
 }
@@ -21,7 +21,7 @@ function generateRefreshToken(user) {
     },
     process.env.JWT_REFRESH_SECRET,
     {
-      expiresIn: "7d",
+      expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || "30d",
     }
   );
 }
