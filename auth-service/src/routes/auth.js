@@ -11,6 +11,11 @@ const {
   authLimiter,
   authActionLimiter,
 } = require("../middleware/rateLimiter");
+const {
+  verifyToken,
+  requireRole,
+  getBearerToken,
+} = require("../middleware/auth");
 
 const redis = require("../utils/redis");
 
@@ -23,16 +28,6 @@ const {
 const prisma = new PrismaClient();
 
 const router = express.Router();
-
-function getBearerToken(req) {
-  const authHeader = req.headers.authorization || "";
-
-  if (!authHeader.startsWith("Bearer ")) {
-    return null;
-  }
-
-  return authHeader.slice(7).trim() || null;
-}
 
 router.post(
   "/register",
@@ -282,5 +277,199 @@ router.post("/logout", authActionLimiter, async (req, res) => {
     });
   }
 });
+
+router.get(
+  "/users",
+  authLimiter,
+  verifyToken,
+  requireRole("ADMIN"),
+  async (req, res) => {
+    try {
+      const page = Math.max(Number(req.query.page || 1), 1);
+      const limit = Math.min(
+        Math.max(Number(req.query.limit || 10), 1),
+        100
+      );
+      const search = String(req.query.search || "").trim();
+      const skip = (page - 1) * limit;
+
+      const where = search
+        ? {
+            OR: [
+              {
+                name: {
+                  contains: search,
+                  mode: "insensitive",
+                },
+              },
+              {
+                email: {
+                  contains: search,
+                  mode: "insensitive",
+                },
+              },
+            ],
+          }
+        : {};
+
+      const [items, total] = await Promise.all([
+        prisma.user.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy: {
+            createdAt: "desc",
+          },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        }),
+        prisma.user.count({ where }),
+      ]);
+
+      res.json({
+        items,
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.ceil(total / limit),
+        },
+      });
+    } catch (error) {
+      console.log(error);
+
+      res.status(500).json({
+        message: "Internal server error",
+      });
+    }
+  }
+);
+
+router.patch(
+  "/users/:id/reset-password",
+  authActionLimiter,
+  verifyToken,
+  requireRole("ADMIN"),
+  [body("password").isLength({ min: 6 })],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          errors: errors.array(),
+        });
+      }
+
+      const user = await prisma.user.findUnique({
+        where: {
+          id: req.params.id,
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+        },
+      });
+
+      if (!user) {
+        return res.status(404).json({
+          message: "User not found",
+        });
+      }
+
+      const passwordHash = await bcrypt.hash(req.body.password, 10);
+
+      await prisma.user.update({
+        where: {
+          id: req.params.id,
+        },
+        data: {
+          passwordHash,
+        },
+      });
+
+      res.json({
+        message: "Password reset successfully",
+        user,
+      });
+    } catch (error) {
+      console.log(error);
+
+      res.status(500).json({
+        message: "Internal server error",
+      });
+    }
+  }
+);
+
+router.delete(
+  "/users/:id",
+  authActionLimiter,
+  verifyToken,
+  requireRole("ADMIN"),
+  async (req, res) => {
+    try {
+      const user = await prisma.user.findUnique({
+        where: {
+          id: req.params.id,
+        },
+        select: {
+          id: true,
+          role: true,
+        },
+      });
+
+      if (!user) {
+        return res.status(404).json({
+          message: "User not found",
+        });
+      }
+
+      if (user.id === req.user.id) {
+        return res.status(400).json({
+          message: "You cannot delete your own account from this page",
+        });
+      }
+
+      if (user.role === "ADMIN") {
+        const adminCount = await prisma.user.count({
+          where: {
+            role: "ADMIN",
+          },
+        });
+
+        if (adminCount <= 1) {
+          return res.status(400).json({
+            message: "At least one admin account must remain",
+          });
+        }
+      }
+
+      await prisma.user.delete({
+        where: {
+          id: req.params.id,
+        },
+      });
+
+      res.json({
+        message: "User deleted successfully",
+      });
+    } catch (error) {
+      console.log(error);
+
+      res.status(500).json({
+        message: "Internal server error",
+      });
+    }
+  }
+);
 
 module.exports = router;

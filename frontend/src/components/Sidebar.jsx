@@ -1,19 +1,31 @@
 import { NavLink } from "react-router-dom";
-
-const navigation = [
-  {
-    to: "/",
-    label: "Dashboard",
-    meta: "overview",
-  },
-  {
-    to: "/projects",
-    label: "Projects",
-    meta: "workspaces",
-  },
-];
+import { useAuth } from "../context/AuthContext";
 
 export default function Sidebar() {
+  const { user } = useAuth();
+
+  const navigation = [
+    {
+      to: "/",
+      label: "Dashboard",
+      meta: "overview",
+    },
+    {
+      to: "/projects",
+      label: "Projects",
+      meta: "workspaces",
+    },
+    ...(user?.role === "ADMIN"
+      ? [
+          {
+            to: "/users",
+            label: "Users",
+            meta: "admin",
+          },
+        ]
+      : []),
+  ];
+
   return (
     <aside className="w-full lg:w-[290px] bg-[#1d2431] text-[#f7f1e8] p-5 lg:p-6 lg:min-h-screen border-r border-white/10">
       <div className="rounded-[28px] border border-white/10 bg-white/5 p-5 shadow-2xl backdrop-blur-md">
