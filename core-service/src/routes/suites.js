@@ -2,14 +2,13 @@ const express = require("express");
 
 const { body, validationResult } = require("express-validator");
 
-const { PrismaClient } = require("@prisma/client");
-
 const {
   verifyToken,
   requireRole,
 } = require("../middleware/auth");
 
-const prisma = new PrismaClient();
+const prisma = require("../utils/prisma");
+const { isNotFoundError } = require("../utils/http");
 
 const router = express.Router();
 
@@ -86,6 +85,10 @@ router.put(
 
       res.json(suite);
     } catch (error) {
+      if (isNotFoundError(error)) {
+        return res.status(404).json({ message: "Suite not found" });
+      }
+
       res.status(500).json({
         message: "Internal server error",
       });
@@ -108,6 +111,10 @@ router.delete(
         message: "Suite deleted successfully",
       });
     } catch (error) {
+      if (isNotFoundError(error)) {
+        return res.status(404).json({ message: "Suite not found" });
+      }
+
       res.status(500).json({
         message: "Internal server error",
       });

@@ -2,11 +2,10 @@ const express = require("express");
 
 const { body, validationResult } = require("express-validator");
 
-const { PrismaClient } = require("@prisma/client");
-
 const { verifyToken, requireRole } = require("../middleware/auth");
 
-const prisma = new PrismaClient();
+const prisma = require("../utils/prisma");
+const { isNotFoundError } = require("../utils/http");
 
 const router = express.Router();
 
@@ -218,6 +217,10 @@ router.put("/:id", requireRole("ADMIN", "TESTER"), async (req, res) => {
 
     res.json(run);
   } catch (error) {
+    if (isNotFoundError(error)) {
+      return res.status(404).json({ message: "Run not found" });
+    }
+
     console.log(error);
 
     res.status(500).json({
@@ -238,6 +241,142 @@ router.delete("/:id", requireRole("ADMIN", "TESTER"), async (req, res) => {
       message: "Run deleted successfully",
     });
   } catch (error) {
+    if (isNotFoundError(error)) {
+      return res.status(404).json({ message: "Run not found" });
+    }
+
+    res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+});
+
+// Export a run's full results as a downloadable report. `?format=csv` (default)
+// returns a CSV attachment; `?format=json` returns a structured JSON attachment.
+// Great for practicing file-download assertions in UI/API automation.
+function csvEscape(value) {
+  const str = value === null || value === undefined ? "" : String(value);
+
+  // Quote and double-up internal quotes if the value contains a comma, quote,
+  // or newline — standard RFC 4180 CSV escaping.
+  if (/[",\n\r]/.test(str)) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+
+  return str;
+}
+
+router.get("/:id/export", async (req, res) => {
+  try {
+    const run = await prisma.testRun.findUnique({
+      where: { id: req.params.id },
+    });
+
+    if (!run) {
+      return res.status(404).json({ message: "Run not found" });
+    }
+
+    // Resolve the test cases in scope for this run (the selected subset, or all
+    // cases in the project's suites if none were explicitly selected), then
+    // join each against its recorded result.
+    const suites = await prisma.testSuite.findMany({
+      where: { projectId: run.projectId },
+      select: { id: true },
+    });
+
+    const allTestCases = await prisma.testCase.findMany({
+      where: { suiteId: { in: suites.map((s) => s.id) } },
+    });
+
+    const inScope =
+      run.selectedCaseIds?.length > 0
+        ? allTestCases.filter((tc) => run.selectedCaseIds.includes(tc.id))
+        : allTestCases;
+
+    const existingResults = await prisma.testResult.findMany({
+      where: { runId: run.id },
+    });
+
+    const resultByCaseId = new Map(
+      existingResults.map((r) => [r.testCaseId, r]),
+    );
+
+    const rows = inScope.map((tc) => {
+      const result = resultByCaseId.get(tc.id);
+
+      return {
+        testCaseId: tc.id,
+        title: tc.title,
+        priority: tc.priority,
+        status: result ? result.status : "PENDING",
+        comment: result?.comment ?? "",
+        executedAt: result?.executedAt ?? null,
+      };
+    });
+
+    const format = String(req.query.format || "csv").toLowerCase();
+    const safeName = (run.name || "run").replace(/[^a-z0-9-_]+/gi, "_");
+
+    if (format === "json") {
+      res.setHeader("Content-Type", "application/json");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${safeName}_${run.id}.json"`,
+      );
+
+      return res.send(
+        JSON.stringify(
+          {
+            run: {
+              id: run.id,
+              name: run.name,
+              status: run.status,
+              projectId: run.projectId,
+              createdAt: run.createdAt,
+            },
+            totalCases: rows.length,
+            results: rows,
+          },
+          null,
+          2,
+        ),
+      );
+    }
+
+    const header = [
+      "Test Case ID",
+      "Title",
+      "Priority",
+      "Status",
+      "Comment",
+      "Executed At",
+    ];
+
+    const lines = [header.join(",")];
+
+    for (const row of rows) {
+      lines.push(
+        [
+          csvEscape(row.testCaseId),
+          csvEscape(row.title),
+          csvEscape(row.priority),
+          csvEscape(row.status),
+          csvEscape(row.comment),
+          csvEscape(row.executedAt ? row.executedAt.toISOString() : ""),
+        ].join(","),
+      );
+    }
+
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${safeName}_${run.id}.csv"`,
+    );
+
+    return res.send(lines.join("\r\n"));
+  } catch (error) {
+    console.log(error);
+
     res.status(500).json({
       message: "Internal server error",
     });

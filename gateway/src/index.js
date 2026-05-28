@@ -2,7 +2,10 @@ const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const morgan = require("morgan");
+const swaggerUi = require("swagger-ui-express");
 const { createProxyMiddleware } = require("http-proxy-middleware");
+
+const openapiSpec = require("./openapi");
 
 dotenv.config();
 
@@ -57,6 +60,18 @@ app.use(morgan("dev"));
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
+
+// Interactive API docs. Mounted BEFORE the proxy middleware so /docs and
+// /openapi.json are served by the gateway itself rather than forwarded to an
+// upstream service. Serving these is static work — no DB calls, no effect on
+// the proxied API endpoints.
+app.get("/openapi.json", (req, res) => {
+  res.json(openapiSpec);
+});
+
+app.use("/docs", swaggerUi.serve, swaggerUi.setup(openapiSpec, {
+  customSiteTitle: "testHub API Docs",
+}));
 
 const proxyOptions = {
   changeOrigin: true,

@@ -2,14 +2,13 @@ const express = require("express");
 
 const { body, validationResult } = require("express-validator");
 
-const { PrismaClient } = require("@prisma/client");
-
 const {
   verifyToken,
   requireRole,
 } = require("../middleware/auth");
 
-const prisma = new PrismaClient();
+const prisma = require("../utils/prisma");
+const { parsePagination, isNotFoundError } = require("../utils/http");
 
 const router = express.Router();
 
@@ -17,11 +16,7 @@ router.use(verifyToken);
 
 router.get("/", async (req, res) => {
   try {
-    const page = Number(req.query.page || 1);
-
-    const limit = Number(req.query.limit || 10);
-
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = parsePagination(req.query);
 
     const [items, total] = await Promise.all([
       prisma.project.findMany({
@@ -128,6 +123,10 @@ router.put(
 
       res.json(project);
     } catch (error) {
+      if (isNotFoundError(error)) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
       res.status(500).json({
         message: "Internal server error",
       });
@@ -150,6 +149,10 @@ router.delete(
         message: "Project deleted successfully",
       });
     } catch (error) {
+      if (isNotFoundError(error)) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
       res.status(500).json({
         message: "Internal server error",
       });

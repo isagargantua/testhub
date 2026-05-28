@@ -5,8 +5,6 @@ const { body, validationResult } = require("express-validator");
 
 const jwt = require("jsonwebtoken");
 
-const { PrismaClient } = require("@prisma/client");
-
 const {
   authLimiter,
   authActionLimiter,
@@ -19,13 +17,13 @@ const {
 
 const redis = require("../utils/redis");
 
+const prisma = require("../utils/prisma");
+
 const {
   generateAccessToken,
   generateRefreshToken,
   verifyRefreshToken,
 } = require("../utils/jwt");
-
-const prisma = new PrismaClient();
 
 const router = express.Router();
 
