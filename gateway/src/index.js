@@ -60,8 +60,8 @@ app.get("/health", (req, res) => {
 
 const proxyOptions = {
   changeOrigin: true,
-  timeout: 30000,
-  proxyTimeout: 30000,
+  timeout: 120000,
+  proxyTimeout: 120000,
   xfwd: true,
   pathRewrite(path, req) {
     return req.originalUrl;
