@@ -12,12 +12,26 @@ const authActionMax = Number(
   process.env.AUTH_ACTION_RATE_LIMIT_MAX || 1000
 );
 
+// Traffic arrives via gateway, so req.ip resolves to the gateway's IP and all
+// users would share a single rate-limit bucket.  Extract the real client IP
+// from the first entry of X-Forwarded-For (set by Render's LB before the
+// request reaches the gateway) so each client has its own counter.
+function clientIpKey(req) {
+  const xff = req.headers["x-forwarded-for"];
+  if (xff) {
+    const first = xff.split(",")[0].trim();
+    if (first) return first;
+  }
+  return req.socket.remoteAddress || req.ip;
+}
+
 const createLimiter = (overrides = {}) =>
   rateLimit({
     windowMs: authWindowMs,
     max: authReadMax,
     standardHeaders: true,
     legacyHeaders: false,
+    keyGenerator: clientIpKey,
     message: {
       message: "Too many requests, please try again later.",
     },
