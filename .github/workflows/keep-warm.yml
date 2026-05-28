@@ -1,0 +1,46 @@
+name: Keep services warm
+
+# Free-tier services (gateway, auth, core) sleep after ~15 min of no traffic
+# and take ~24s to wake. This workflow pings each service's /health endpoint on
+# a schedule so they stay awake during your practice window — meaning Postman /
+# RestAssured API runs and the UI respond instantly instead of cold-starting.
+#
+# BUDGET NOTE: Render's free tier gives ~750 service-hours/month total across
+# all free web services. Keeping 3 services awake 24/7 (~2190 hrs) blows that
+# budget. So this only runs during a daily window. Widen/narrow the cron hours
+# below to match when you actually test. Every 14 min stays under the 15-min
+# sleep threshold while minimizing pings.
+#
+# Cron is in UTC. The window below is 04:00–11:59 UTC = ~09:30–17:30 IST.
+# Roughly 3 services x 8 hrs x 30 days = ~720 service-hrs, within the free cap.
+
+on:
+  schedule:
+    - cron: "*/14 4-11 * * *"
+  workflow_dispatch: {} # lets you trigger a manual warm-up from the Actions tab
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping all services in parallel
+        run: |
+          urls=(
+            "https://testhub-gateway.onrender.com/health"
+            "https://testhub-auth-service.onrender.com/health"
+            "https://testhub-core-service.onrender.com/health"
+          )
+          pids=()
+          for url in "${urls[@]}"; do
+            (
+              echo "Pinging $url"
+              # --max-time 60 tolerates a full cold start; retry a couple times.
+              curl -s -o /dev/null -w "%{http_code} in %{time_total}s\n" \
+                --max-time 60 --retry 2 --retry-delay 5 "$url" \
+                || echo "ping failed: $url"
+            ) &
+            pids+=($!)
+          done
+          for pid in "${pids[@]}"; do
+            wait "$pid"
+          done
