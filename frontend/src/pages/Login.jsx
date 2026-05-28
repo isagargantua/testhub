@@ -58,37 +58,36 @@ export default function Login() {
     <div className="auth-shell">
       <section className="auth-hero flex flex-col justify-between">
         <div>
-          <div className="section-kicker">Premium test orchestration</div>
+          <div className="section-kicker">Enterprise Test Management</div>
           <h1 className="display-title mt-5 max-w-xl text-5xl leading-[0.92] md:text-6xl">
-            Automation deserves a control room, not a blank form.
+            One platform for your entire QA workflow.
           </h1>
           <p className="mt-6 max-w-xl text-base leading-7 text-[#ddcfbf]">
-            TestHub brings your API and automation work into a more composed
-            workspace with cleaner flows, calmer visuals, and less friction.
+            Manage projects, organize test suites, execute test runs, and analyze results — all in one centralized platform built for scalable QA teams.
           </p>
         </div>
 
         <div className="space-y-5">
           <div className="metric-grid">
             <div className="metric-chip">
-              <div className="section-kicker">Focused</div>
-              <div className="mt-3 display-title text-3xl">50-100</div>
+              <div className="section-kicker">Structured</div>
+              <div className="mt-3 display-title text-3xl">Projects</div>
               <p className="mt-2 text-sm text-[#d9ccbc]">
-                Ideal account pool for repeatable automation cycles.
+                Organize testing by product area, sprint, or release cycle.
               </p>
             </div>
             <div className="metric-chip">
-              <div className="section-kicker">Reliable</div>
-              <div className="mt-3 display-title text-3xl">Smooth</div>
+              <div className="section-kicker">Execution</div>
+              <div className="mt-3 display-title text-3xl">Runs</div>
               <p className="mt-2 text-sm text-[#d9ccbc]">
-                Login, reuse, delete, and rerun without auth feeling fragile.
+                Real-time PASS/FAIL/SKIP/BLOCKED tracking with full audit trail.
               </p>
             </div>
             <div className="metric-chip">
-              <div className="section-kicker">Curated</div>
-              <div className="mt-3 display-title text-3xl">Premium</div>
+              <div className="section-kicker">Analytics</div>
+              <div className="mt-3 display-title text-3xl">Metrics</div>
               <p className="mt-2 text-sm text-[#d9ccbc]">
-                Intentional surfaces instead of generic admin-panel monotony.
+                Dashboard pass-rate analytics and result breakdowns across all runs.
               </p>
             </div>
           </div>
@@ -99,8 +98,8 @@ export default function Login() {
         <div className="card">
           <div className="eyebrow">Sign in</div>
           <h2 className="display-title mt-3 text-4xl">Welcome back</h2>
-          <p className="mt-3 text-sm leading-6 text-[#736556]">
-            Enter your account details to continue into the workspace.
+          <p className="mt-3 text-sm leading-6 text-[#64748b]">
+            Sign in to access your projects, test suites, and execution dashboards.
           </p>
 
           {error && (
@@ -135,13 +134,13 @@ export default function Login() {
             </div>
 
             <button className="btn w-full" disabled={submitting}>
-              {submitting ? "Logging in..." : "Enter TestHub"}
+              {submitting ? "Logging in..." : "Sign In"}
             </button>
           </form>
 
-          <p className="mt-6 text-sm text-[#736556]">
+          <p className="mt-6 text-sm text-[#64748b]">
             New to TestHub?{" "}
-            <Link to="/register" className="font-semibold text-[#a45b31]">
+            <Link to="/register" className="font-semibold text-[#4f46e5]">
               Create an account
             </Link>
           </p>

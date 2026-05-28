@@ -85,10 +85,11 @@ enum TestCaseStatus {
 }
 
 model TestRun {
-  id          String    @id @default(cuid())
-  name        String
-  description String?
-  status      RunStatus @default(IN_PROGRESS)
+  id              String    @id @default(cuid())
+  name            String
+  description     String?
+  status          RunStatus @default(IN_PROGRESS)
+  selectedCaseIds String[]  @default([])
 
   projectId   String
   project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)

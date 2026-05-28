@@ -53,6 +53,7 @@ router.post(
           description: req.body.description,
           projectId: req.params.projectId,
           createdById: req.user.id,
+          selectedCaseIds: req.body.testCaseIds || [],
         },
       });
 
@@ -89,13 +90,17 @@ router.get("/:id", async (req, res) => {
 
     const suiteIds = suites.map((suite) => suite.id);
 
-    const testCases = await prisma.testCase.findMany({
+    const allTestCases = await prisma.testCase.findMany({
       where: {
         suiteId: {
           in: suiteIds,
         },
       },
     });
+
+    const filteredCases = run.selectedCaseIds?.length > 0
+      ? allTestCases.filter((tc) => run.selectedCaseIds.includes(tc.id))
+      : allTestCases;
 
     const existingResults = await prisma.testResult.findMany({
       where: {
@@ -106,7 +111,7 @@ router.get("/:id", async (req, res) => {
       },
     });
 
-    const results = testCases.map((testCase) => {
+    const results = filteredCases.map((testCase) => {
       const existing = existingResults.find(
         (r) => r.testCaseId === testCase.id,
       );
@@ -130,8 +135,11 @@ router.get("/:id", async (req, res) => {
       BLOCKED: 0,
     };
 
+    const filteredCaseIds = new Set(filteredCases.map((tc) => tc.id));
     existingResults.forEach((result) => {
-      summary[result.status]++;
+      if (filteredCaseIds.has(result.testCaseId)) {
+        summary[result.status]++;
+      }
     });
 
     res.json({

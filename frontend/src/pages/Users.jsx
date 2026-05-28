@@ -168,16 +168,14 @@ export default function Users() {
             Users
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-[#75675a] md:text-base">
-            View the stored identity data for test accounts, delete disposable
-            users, and reset passwords to known values for automation.
+            Manage team members, control access roles, and reset credentials for your QA workspace.
           </p>
         </div>
 
         <div className="card-soft max-w-sm">
-          <div className="eyebrow">Important</div>
+          <div className="eyebrow">Note</div>
           <p className="mt-3 text-sm leading-6 text-[#75675a]">
-            Existing passwords cannot be viewed because they are stored only as
-            hashes. Use reset to set a new test password you can reuse.
+            Passwords are stored as hashes and cannot be viewed. Use the reset function to set a known password for any account.
           </p>
         </div>
       </div>

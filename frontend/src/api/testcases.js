@@ -1,8 +1,8 @@
 import client from "./client";
 
-export async function getTestCases(suiteId, page = 1) {
+export async function getTestCases(suiteId, page = 1, limit = 10) {
   const response = await client.get(
-    `/api/testcases/suite/${suiteId}?page=${page}`
+    `/api/testcases/suite/${suiteId}?page=${page}&limit=${limit}`
   );
   return response.data;
 }

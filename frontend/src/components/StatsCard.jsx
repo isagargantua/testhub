@@ -5,7 +5,7 @@ export default function StatsCard({
 }) {
   return (
     <div className="card overflow-hidden relative">
-      <div className="absolute right-0 top-0 h-24 w-24 rounded-full bg-[rgba(201,111,59,0.08)] blur-2xl" />
+      <div className="absolute right-0 top-0 h-24 w-24 rounded-full bg-[rgba(79,70,229,0.06)] blur-2xl" />
       <div className="relative">
       <div className="eyebrow">
         {title}
