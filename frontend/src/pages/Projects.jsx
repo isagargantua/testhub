@@ -224,7 +224,7 @@ export default function Projects() {
           {projects.map((project) => (
             <div
               key={project.id}
-              className="card cursor-pointer transition duration-200 hover:-translate-y-1"
+              className="card flex h-full flex-col cursor-pointer transition duration-200 hover:-translate-y-1"
               onClick={() =>
                 navigate(`/projects/${project.id}`)
               }
@@ -246,7 +246,7 @@ export default function Projects() {
                   "No description yet. Use this space to define the testing focus and environment intent."}
               </p>
 
-              <div className="mt-6 flex items-center justify-between">
+              <div className="mt-auto flex items-center justify-between pt-6">
                 <span className="text-xs uppercase tracking-[0.22em] text-[#8a7a69]">
                   Open workspace
                 </span>
