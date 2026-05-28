@@ -1,7 +1,10 @@
 const rateLimit = require("express-rate-limit");
 
+// Default window is 60 s — short enough that a testing-tool user is never
+// locked out for long, still meaningful protection against brute-force bursts.
+// Override via AUTH_RATE_LIMIT_WINDOW_MS env var if needed.
 const authWindowMs = Number(
-  process.env.AUTH_RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000
+  process.env.AUTH_RATE_LIMIT_WINDOW_MS || 60 * 1000
 );
 
 const authReadMax = Number(
