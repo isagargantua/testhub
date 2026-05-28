@@ -17,7 +17,26 @@
       "Bash(npx *)",
       "Bash(node *)",
       "Bash(powershell *)",
-      "PowerShell"
+      "PowerShell",
+      "Bash(cat .env)",
+      "Bash(cat .env.production)",
+      "Bash(cat gateway/.env)",
+      "Bash(cat gateway/.env.example)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code} | time %{time_total}s\\\\n\" --max-time 90 https://testhub-gateway.onrender.com/health)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code} | time %{time_total}s\\\\n\" --max-time 90 https://testhub-auth-service.onrender.com/health)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code} | time %{time_total}s\\\\n\" --max-time 90 https://testhub-core-service.onrender.com/health)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(curl -s -w \"\\\\nHTTP %{http_code} | time %{time_total}s\\\\n\" --max-time 90 -X POST https://testhub-gateway.onrender.com/api/auth/login -H \"Content-Type: application/json\" -H \"Origin: https://mytesthub.vercel.app\" -d '{\"email\":\"diagnostic-test@example.com\",\"password\":\"wrongpassword\"}')",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code} in %{time_total}s\\\\n\" https://testhub-core-service.onrender.com/health)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code} in %{time_total}s\\\\n\" https://testhub-gateway.onrender.com/api/projects)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" https://testhub-gateway.onrender.com/health)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" https://testhub-auth-service.onrender.com/health)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" https://testhub-core-service.onrender.com/health)",
+      "Bash(curl -s -m 70 -o /dev/null -w \"HTTP %{http_code} in %{time_total}s\\\\n\" https://testhub-auth-service.onrender.com/health)",
+      "Bash(curl -s -m 70 -o /dev/null -w \"HTTP %{http_code} in %{time_total}s\\\\n\" https://testhub-gateway.onrender.com/health)",
+      "Bash(curl -s -o /dev/null -m 120 -w \"core-service -> HTTP %{http_code} in %{time_total}s\\\\n\" \"https://testhub-core-service.onrender.com/health\")"
     ]
   }
 }

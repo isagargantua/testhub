@@ -1,0 +1,671 @@
+{
+  "info": {
+    "_postman_id": "testhub-smoke-tests-v1",
+    "name": "testHub — Smoke Tests",
+    "description": "## Smoke Test Suites for testHub API\n\nTwo preconfigured test sequences to validate testHub after any deployment or code change.\n\n### 🟢 Quick Smoke  |  5 requests · ~30 seconds\n**When to run:** After frontend-only or infra changes, quick health check\n**What it tests:** All 3 services alive, auth working, DB connected, aggregation pipeline working\n\n**Requests:**\n1. Gateway Health Check\n2. Login - Admin (get fresh token)\n3. GET /api/auth/me (verify token round-trip)\n4. GET /api/projects (core-service + DB alive)\n5. GET /api/dashboard/stats (aggregation pipeline + new fields)\n\n### 🔵 Full Smoke  |  13 requests · ~2-3 minutes\n**When to run:** After any backend change, before pushing, full CRUD chain validation\n**What it tests:** Complete end-to-end flow: create project → suite → test case → run (with TC selection) → mark result → cleanup\n\n**Requests 1-5:** Same as Quick Smoke (services up, auth working)\n**Requests 6-13:** Full CRUD chain\n6. Create Project\n7. Create Suite\n8. Create Test Case\n9. Create Run (with testCaseIds selection)\n10. Get Run (verify TC filtering works)\n11. Update Run Status → COMPLETED\n12. Submit Result (PASS)\n13. Delete Project (cleanup + cascade)\n\n### Setup\n1. Update collection variables: `adminEmail`, `adminPassword` with your existing admin credentials\n2. Just run the folder — Login happens automatically in the first request\n3. Token auto-refresh is built in (pre-request script)\n\n### New Fields (Last Update)\n- `testCaseIds: []` — optional field when creating runs (test case selection feature)\n- `POST /api/runs/project/:projectId` now accepts `testCaseIds: [\"id1\", \"id2\", ...]` body\n- `GET /api/dashboard/stats` now returns `latestRunResults`, `latestRunName`, `latestRunStatus`\n\n### Import Instructions\n1. Open Postman → Collections → Import → choose this file\n2. Select or create an environment (can use same as Full Collection)\n3. Update `adminEmail` + `adminPassword` in collection variables\n4. Run either folder via Collection Runner or click \"Run Folder\"",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{accessToken}}", "type": "string" }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Auto-refresh accessToken when it expires within 60 seconds",
+          "const token = pm.collectionVariables.get('accessToken');",
+          "const refresh = pm.collectionVariables.get('refreshToken');",
+          "if (token && refresh) {",
+          "    try {",
+          "        const parts = token.split('.');",
+          "        if (parts.length === 3) {",
+          "            const payload = JSON.parse(atob(parts[1]));",
+          "            const now = Math.floor(Date.now() / 1000);",
+          "            if (payload.exp && payload.exp - now < 60) {",
+          "                pm.sendRequest({",
+          "                    url: pm.collectionVariables.get('baseUrl') + '/api/auth/refresh',",
+          "                    method: 'POST',",
+          "                    header: [{ key: 'Content-Type', value: 'application/json' }],",
+          "                    body: { mode: 'raw', raw: JSON.stringify({ refreshToken: refresh }) }",
+          "                }, (err, res) => {",
+          "                    if (!err && res.code === 200) {",
+          "                        pm.collectionVariables.set('accessToken', res.json().accessToken);",
+          "                    }",
+          "                });",
+          "            }",
+          "        }",
+          "    } catch(e) {}",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl",        "value": "https://testhub-gateway.onrender.com", "type": "string" },
+    { "key": "accessToken",    "value": "", "type": "string" },
+    { "key": "refreshToken",   "value": "", "type": "string" },
+    { "key": "adminEmail",     "value": "admin@testhub.com",  "type": "string" },
+    { "key": "adminPassword",  "value": "admin123",           "type": "string" },
+    { "key": "projectId",      "value": "", "type": "string" },
+    { "key": "suiteId",        "value": "", "type": "string" },
+    { "key": "testCaseId",     "value": "", "type": "string" },
+    { "key": "runId",          "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "🟢 Quick Smoke  |  5 requests · ~30 sec",
+      "description": "Fast health check after any change. Verifies all 3 services are up, auth works, and DB is connected. Run first before Full Smoke.",
+      "item": [
+        {
+          "name": "[QS-1] Gateway Health Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Gateway is alive', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.status).to.eql('ok');",
+                  "});",
+                  "pm.test('Response time acceptable (cold start <60s)', () => {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(60000);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Hits gateway health. Use this to wake up free-tier services. Cold start ~24s."
+          }
+        },
+        {
+          "name": "[QS-2] Login - Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Has tokens', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.all.keys('user', 'accessToken', 'refreshToken');",
+                  "    pm.expect(body.accessToken).to.be.a('string').and.not.empty;",
+                  "});",
+                  "pm.test('Save tokens to collection', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.collectionVariables.set('accessToken', body.accessToken);",
+                  "    pm.collectionVariables.set('refreshToken', body.refreshToken);",
+                  "    console.log('✓ Tokens saved. Logged in as:', body.user.email);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Logs in and saves tokens for subsequent requests."
+          }
+        },
+        {
+          "name": "[QS-3] Verify Token (GET /api/auth/me)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns current user', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.all.keys('id', 'name', 'email', 'role');",
+                  "    pm.expect(body.role).to.eql('ADMIN');",
+                  "    console.log('✓ Token valid. User:', body.name, '(' + body.email + ')');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "me"]
+            },
+            "description": "Verifies the bearer token is valid and round-tripping correctly."
+          }
+        },
+        {
+          "name": "[QS-4] List Projects (core-service alive)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Response structure correct', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property('items');",
+                  "    pm.expect(body).to.have.property('pagination');",
+                  "    pm.expect(body.items).to.be.an('array');",
+                  "});",
+                  "console.log('✓ core-service + DB alive. Total projects:', pm.response.json().pagination.total);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/projects?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects"],
+              "query": [
+                { "key": "page",  "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            },
+            "description": "Verifies core-service is up and DB is connected."
+          }
+        },
+        {
+          "name": "[QS-5] Dashboard Stats (new fields check)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Has all required stat fields', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.all.keys(",
+                  "        'totalProjects', 'activeProjects', 'totalTestCases',",
+                  "        'totalRuns', 'activeRuns', 'passRatePercent',",
+                  "        'recentRuns', 'resultBreakdown',",
+                  "        'latestRunResults', 'latestRunName', 'latestRunStatus'",
+                  "    );",
+                  "});",
+                  "pm.test('Stats are numeric', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.totalProjects).to.be.a('number');",
+                  "    pm.expect(body.passRatePercent).to.be.within(0, 100);",
+                  "});",
+                  "pm.test('Result breakdown has PASS/FAIL/SKIP/BLOCKED', () => {",
+                  "    const bd = pm.response.json().resultBreakdown;",
+                  "    pm.expect(bd).to.have.all.keys('PASS', 'FAIL', 'SKIP', 'BLOCKED');",
+                  "});",
+                  "pm.test('New fields: latestRunResults, latestRunName, latestRunStatus', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.latestRunResults).to.be.an('array');",
+                  "    pm.expect([null, 'string']).to.include(typeof body.latestRunName);",
+                  "    console.log('✓ Dashboard aggregation working. Pass rate:', body.passRatePercent + '%');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/dashboard/stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "dashboard", "stats"]
+            },
+            "description": "Verifies dashboard aggregation pipeline works and checks for new fields (latestRunResults, latestRunName, latestRunStatus)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔵 Full Smoke  |  13 requests · ~2-3 min",
+      "description": "Complete end-to-end CRUD validation. Creates project → suite → test case → run (with TC selection) → result → cleanup. Tests the entire API chain and TC selection feature.",
+      "item": [
+        {
+          "name": "[FS-1] Gateway Health Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Gateway is alive', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.status).to.eql('ok');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "[FS-2] Login - Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('accessToken', body.accessToken);",
+                  "pm.collectionVariables.set('refreshToken', body.refreshToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "[FS-3] Verify Token (GET /api/auth/me)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "me"]
+            }
+          }
+        },
+        {
+          "name": "[FS-4] List Projects",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/projects?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects"],
+              "query": [
+                { "key": "page",  "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "[FS-5] Dashboard Stats",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/dashboard/stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "dashboard", "stats"]
+            }
+          }
+        },
+        {
+          "name": "[FS-6] Create Project",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Save projectId', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.id).to.be.a('string').and.not.empty;",
+                  "    pm.collectionVariables.set('projectId', body.id);",
+                  "    console.log('✓ Project created:', body.id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Smoke Test Project\",\n  \"description\": \"Auto-generated by smoke tests\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/projects",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects"]
+            }
+          }
+        },
+        {
+          "name": "[FS-7] Create Suite",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Save suiteId', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.collectionVariables.set('suiteId', body.id);",
+                  "    console.log('✓ Suite created:', body.id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Smoke Test Suite\",\n  \"description\": \"Auto-generated suite\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/suites/project/{{projectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "suites", "project", "{{projectId}}"]
+            }
+          }
+        },
+        {
+          "name": "[FS-8] Create Test Case",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Save testCaseId', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.collectionVariables.set('testCaseId', body.id);",
+                  "    console.log('✓ Test case created:', body.id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Smoke Test - Login Flow\",\n  \"description\": \"Verify login returns tokens\",\n  \"steps\": \"1. Send POST /api/auth/login\\n2. Verify 200\\n3. Check tokens\",\n  \"expected\": \"HTTP 200 with accessToken and refreshToken\",\n  \"priority\": \"HIGH\",\n  \"tags\": [\"smoke\", \"auth\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/testcases/suite/{{suiteId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "testcases", "suite", "{{suiteId}}"]
+            }
+          }
+        },
+        {
+          "name": "[FS-9] Create Run (with TC selection)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Save runId', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.status).to.eql('IN_PROGRESS');",
+                  "    pm.collectionVariables.set('runId', body.id);",
+                  "    console.log('✓ Run created with TC selection:', body.id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Smoke Test Run\",\n  \"description\": \"Test run with selected test cases\",\n  \"testCaseIds\": [\"{{testCaseId}}\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/runs/project/{{projectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "runs", "project", "{{projectId}}"]
+            },
+            "description": "NEW: Accepts testCaseIds array. Run will only include selected test cases (not all)."
+          }
+        },
+        {
+          "name": "[FS-10] Get Run (verify TC filtering)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Run contains exactly 1 test case', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.testCases).to.be.an('array');",
+                  "    pm.expect(body.testCases.length).to.eql(1);",
+                  "    pm.expect(body.testCases[0].id).to.eql(pm.collectionVariables.get('testCaseId'));",
+                  "    console.log('✓ TC filtering works. Run contains 1/1 selected TC');",
+                  "});",
+                  "pm.test('Run has summary counts', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.summary).to.have.all.keys('PASS', 'FAIL', 'SKIP', 'BLOCKED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/runs/{{runId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "runs", "{{runId}}"]
+            },
+            "description": "Verifies the run only includes the 1 selected test case (not all TCs in project)."
+          }
+        },
+        {
+          "name": "[FS-11] Update Run Status → COMPLETED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Status is COMPLETED', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.status).to.eql('COMPLETED');",
+                  "    console.log('✓ Run marked as COMPLETED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Smoke Test Run - Complete\",\n  \"status\": \"COMPLETED\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/runs/{{runId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "runs", "{{runId}}"]
+            }
+          }
+        },
+        {
+          "name": "[FS-12] Submit Test Result (PASS)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Result saved as PASS', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.status).to.eql('PASS');",
+                  "    pm.expect(body.testCaseId).to.eql(pm.collectionVariables.get('testCaseId'));",
+                  "    console.log('✓ Result recorded as PASS');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"testCaseId\": \"{{testCaseId}}\",\n  \"status\": \"PASS\",\n  \"comment\": \"All steps executed successfully\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/runs/{{runId}}/results",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "runs", "{{runId}}", "results"]
+            }
+          }
+        },
+        {
+          "name": "[FS-13] Cleanup - Delete Project",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "console.warn('⚠️  Deleting project cascades to suites, test cases, runs, results');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Delete success', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.message).to.eql('Project deleted successfully');",
+                  "    console.log('✓ Cleanup complete. All test data removed.');",
+                  "});",
+                  "// Clear collection variables for next run",
+                  "pm.collectionVariables.set('projectId', '');",
+                  "pm.collectionVariables.set('suiteId', '');",
+                  "pm.collectionVariables.set('testCaseId', '');",
+                  "pm.collectionVariables.set('runId', '');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/{{projectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects", "{{projectId}}"]
+            },
+            "description": "Deletes the project and cascades to all suites, test cases, and runs. Clears collection variables for next run."
+          }
+        }
+      ]
+    }
+  ]
+}

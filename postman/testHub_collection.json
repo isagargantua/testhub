@@ -1,0 +1,1997 @@
+{
+  "info": {
+    "_postman_id": "testhub-api-collection-v1",
+    "name": "testHub API - Full Collection",
+    "description": "Complete Postman collection for testHub API.\n\n**Setup:**\n1. Update collection variables: `adminEmail`, `adminPassword` with your existing admin credentials.\n2. Run **Login - Admin** first to populate `accessToken` and `refreshToken`.\n3. Run folders in order for a full end-to-end flow.\n\n**Recommended run order:**\n`Auth` → `Projects` → `Suites` → `Test Cases` → `Runs` → `Dashboard`\n\n**Notes:**\n- Register Admin only works if the database has zero users (first-time setup). Otherwise it returns 400.\n- Suites, Test Cases, and Runs are project-scoped. Create a Project first.\n- `testCaseId` must belong to the run's project when submitting results.\n- Deleting a project cascades to all its suites, test cases, and runs.\n- Free-tier cold starts can take ~24s. The Health Check request warms up the gateway.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{accessToken}}", "type": "string" }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Auto-refresh accessToken when it expires within 60 seconds",
+          "const token = pm.collectionVariables.get('accessToken');",
+          "const refresh = pm.collectionVariables.get('refreshToken');",
+          "if (token && refresh) {",
+          "    try {",
+          "        const parts = token.split('.');",
+          "        if (parts.length === 3) {",
+          "            const payload = JSON.parse(atob(parts[1]));",
+          "            const now = Math.floor(Date.now() / 1000);",
+          "            if (payload.exp && payload.exp - now < 60) {",
+          "                pm.sendRequest({",
+          "                    url: pm.collectionVariables.get('baseUrl') + '/api/auth/refresh',",
+          "                    method: 'POST',",
+          "                    header: [{ key: 'Content-Type', value: 'application/json' }],",
+          "                    body: { mode: 'raw', raw: JSON.stringify({ refreshToken: refresh }) }",
+          "                }, (err, res) => {",
+          "                    if (!err && res.code === 200) {",
+          "                        pm.collectionVariables.set('accessToken', res.json().accessToken);",
+          "                    }",
+          "                });",
+          "            }",
+          "        }",
+          "    } catch(e) {}",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl",        "value": "https://testhub-gateway.onrender.com", "type": "string" },
+    { "key": "accessToken",    "value": "", "type": "string" },
+    { "key": "refreshToken",   "value": "", "type": "string" },
+    { "key": "adminEmail",     "value": "admin@testhub.com",  "type": "string" },
+    { "key": "adminPassword",  "value": "admin123",           "type": "string" },
+    { "key": "testerEmail",    "value": "",                   "type": "string" },
+    { "key": "testerPassword", "value": "tester123",          "type": "string" },
+    { "key": "adminUserId",    "value": "", "type": "string" },
+    { "key": "targetUserId",   "value": "", "type": "string" },
+    { "key": "projectId",      "value": "", "type": "string" },
+    { "key": "suiteId",        "value": "", "type": "string" },
+    { "key": "testCaseId",     "value": "", "type": "string" },
+    { "key": "runId",          "value": "", "type": "string" }
+  ],
+  "item": [
+
+    {
+      "name": "Health Check",
+      "item": [
+        {
+          "name": "Gateway Health (Warm-up)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Gateway is alive', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.status).to.eql('ok');",
+                  "});",
+                  "pm.test('Response time acceptable', () => {",
+                  "    // Allow up to 60s for cold-start warm-up",
+                  "    pm.expect(pm.response.responseTime).to.be.below(60000);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Hits the gateway health endpoint. Use this to wake up free-tier services before running tests. Cold start can take ~24 seconds."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "Auth",
+      "item": [
+
+        {
+          "name": "Register - Admin (First User)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Only meaningful when the database is empty (zero users).",
+                  "// If you already have an admin account, this will return 400 - that is expected."
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const status = pm.response.code;",
+                  "pm.test('Register admin - 201 or 400 (already exists)', () => {",
+                  "    pm.expect([201, 400]).to.include(status);",
+                  "});",
+                  "if (status === 201) {",
+                  "    const body = pm.response.json();",
+                  "    pm.test('Response has user and tokens', () => {",
+                  "        pm.expect(body).to.have.all.keys('user', 'accessToken', 'refreshToken');",
+                  "        pm.expect(body.user.role).to.eql('ADMIN');",
+                  "    });",
+                  "    pm.collectionVariables.set('accessToken', body.accessToken);",
+                  "    pm.collectionVariables.set('refreshToken', body.refreshToken);",
+                  "    pm.collectionVariables.set('adminUserId', body.user.id);",
+                  "    console.log('Admin registered. ID:', body.user.id);",
+                  "} else {",
+                  "    const body = pm.response.json();",
+                  "    pm.test('Error message present', () => {",
+                  "        pm.expect(body.message).to.eql('User already exists');",
+                  "    });",
+                  "    console.log('Admin already registered - run Login instead.');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Admin User\",\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "description": "Registers the first user as ADMIN. Subsequent users become TESTER. Update adminEmail/adminPassword in collection variables first."
+          }
+        },
+
+        {
+          "name": "Register - Tester (New User)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Generate a unique tester email to avoid duplicate conflicts on repeated runs",
+                  "const uniqueEmail = 'tester_' + Date.now() + '@example.com';",
+                  "pm.collectionVariables.set('testerEmail', uniqueEmail);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Response has user and tokens', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.all.keys('user', 'accessToken', 'refreshToken');",
+                  "    pm.expect(body.user).to.have.all.keys('id', 'name', 'email', 'role');",
+                  "    pm.expect(body.user.role).to.eql('TESTER');",
+                  "});",
+                  "pm.test('Saves tester user ID for admin operations', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.collectionVariables.set('targetUserId', body.user.id);",
+                  "    pm.expect(body.user.id).to.be.a('string').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Tester User\",\n  \"email\": \"{{testerEmail}}\",\n  \"password\": \"{{testerPassword}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "description": "Registers a new tester. A unique email is auto-generated in the pre-request script. The tester's userId is saved to `targetUserId` for use in admin operations."
+          }
+        },
+
+        {
+          "name": "Login - Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Response has user, accessToken, refreshToken', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.all.keys('user', 'accessToken', 'refreshToken');",
+                  "    pm.expect(body.user).to.have.all.keys('id', 'name', 'email', 'role');",
+                  "    pm.expect(body.user.role).to.eql('ADMIN');",
+                  "    pm.expect(body.accessToken).to.be.a('string').and.not.empty;",
+                  "    pm.expect(body.refreshToken).to.be.a('string').and.not.empty;",
+                  "});",
+                  "pm.test('Tokens saved to collection variables', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.collectionVariables.set('accessToken', body.accessToken);",
+                  "    pm.collectionVariables.set('refreshToken', body.refreshToken);",
+                  "    pm.collectionVariables.set('adminUserId', body.user.id);",
+                  "    console.log('Logged in as ADMIN. ID:', body.user.id);",
+                  "    pm.expect(pm.collectionVariables.get('accessToken')).to.not.be.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Logs in as admin and saves accessToken + refreshToken to collection variables. Run this first before any protected endpoint."
+          }
+        },
+
+        {
+          "name": "Login - Tester",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Response has user and tokens', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.all.keys('user', 'accessToken', 'refreshToken');",
+                  "    pm.expect(body.user.role).to.eql('TESTER');",
+                  "});",
+                  "// Uncomment below to switch active session to tester",
+                  "// const body = pm.response.json();",
+                  "// pm.collectionVariables.set('accessToken', body.accessToken);",
+                  "// pm.collectionVariables.set('refreshToken', body.refreshToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{testerEmail}}\",\n  \"password\": \"{{testerPassword}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Logs in as tester. Does NOT overwrite the active session tokens by default — uncomment the lines in the test script to switch."
+          }
+        },
+
+        {
+          "name": "Get Me",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns current user profile', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.all.keys('id', 'name', 'email', 'role');",
+                  "    pm.expect(body.id).to.be.a('string').and.not.empty;",
+                  "    pm.expect(body.email).to.be.a('string').and.include('@');",
+                  "    pm.expect(['ADMIN', 'TESTER', 'VIEWER']).to.include(body.role);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "me"]
+            },
+            "description": "Returns the profile of the currently authenticated user. Uses the Bearer token from collection variables."
+          }
+        },
+
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns new accessToken', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property('accessToken');",
+                  "    pm.expect(body.accessToken).to.be.a('string').and.not.empty;",
+                  "});",
+                  "pm.test('Saves new accessToken', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.collectionVariables.set('accessToken', body.accessToken);",
+                  "    pm.expect(pm.collectionVariables.get('accessToken')).to.not.be.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "refresh"]
+            },
+            "description": "Exchanges a refresh token for a new access token. The new accessToken is saved to collection variables."
+          }
+        },
+
+        {
+          "name": "Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Logout success message', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.message).to.eql('Logged out successfully');",
+                  "});",
+                  "// Clear tokens after logout",
+                  "pm.collectionVariables.set('accessToken', '');",
+                  "console.log('Logged out. Run Login - Admin to re-authenticate.');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "logout"]
+            },
+            "description": "Logs out the current user. Blacklists the access token in Redis. Clears accessToken collection variable after success."
+          }
+        },
+
+        {
+          "name": "Re-Login After Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Re-authenticated successfully', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.all.keys('user', 'accessToken', 'refreshToken');",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('accessToken', body.accessToken);",
+                  "pm.collectionVariables.set('refreshToken', body.refreshToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Run after Logout to restore a valid session token."
+          }
+        },
+
+        {
+          "name": "[Error] Login - Wrong Password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401 Unauthorized', () => pm.response.to.have.status(401));",
+                  "pm.test('Returns invalid credentials message', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.message).to.eql('Invalid credentials');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"wrongpassword_intentional\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        },
+
+        {
+          "name": "[Error] Register - Duplicate Email",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400 Bad Request', () => pm.response.to.have.status(400));",
+                  "pm.test('Returns duplicate email error', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.message).to.eql('User already exists');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Duplicate\",\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"admin123\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            }
+          }
+        },
+
+        {
+          "name": "[Error] Login - Validation Failure (empty email)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400 Bad Request', () => pm.response.to.have.status(400));",
+                  "pm.test('Returns validation errors array', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property('errors');",
+                  "    pm.expect(body.errors).to.be.an('array').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"\",\n  \"password\": \"\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        },
+
+        {
+          "name": "[Error] Get Me - No Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401 Unauthorized', () => pm.response.to.have.status(401));",
+                  "pm.test('Returns no token error', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property('message');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "me"]
+            }
+          }
+        },
+
+        {
+          "name": "[Error] Refresh - Invalid Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401 Unauthorized', () => pm.response.to.have.status(401));",
+                  "pm.test('Returns invalid refresh token error', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.message).to.eql('Invalid refresh token');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"this.is.not.a.valid.jwt\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "refresh"]
+            }
+          }
+        }
+
+      ]
+    },
+
+    {
+      "name": "Admin - Users",
+      "description": "ADMIN-only user management. Requires admin accessToken in collection variables.",
+      "item": [
+
+        {
+          "name": "List All Users",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Response has items and pagination', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property('items');",
+                  "    pm.expect(body).to.have.property('pagination');",
+                  "    pm.expect(body.items).to.be.an('array');",
+                  "    pm.expect(body.pagination).to.have.all.keys('page', 'limit', 'total', 'pages');",
+                  "});",
+                  "pm.test('User objects have expected fields', () => {",
+                  "    const body = pm.response.json();",
+                  "    if (body.items.length > 0) {",
+                  "        const user = body.items[0];",
+                  "        pm.expect(user).to.have.all.keys('id', 'name', 'email', 'role', 'createdAt', 'updatedAt');",
+                  "    }",
+                  "});",
+                  "// Save the ID of the first non-admin user as targetUserId for reset/delete tests",
+                  "const body = pm.response.json();",
+                  "const tester = body.items.find(u => u.role === 'TESTER');",
+                  "if (tester) {",
+                  "    pm.collectionVariables.set('targetUserId', tester.id);",
+                  "    console.log('targetUserId set to:', tester.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/users?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "users"],
+              "query": [
+                { "key": "page",  "value": "1"  },
+                { "key": "limit", "value": "10" }
+              ]
+            },
+            "description": "Lists all users (ADMIN only). Saves the first TESTER's ID to `targetUserId` for use in reset/delete tests."
+          }
+        },
+
+        {
+          "name": "Search Users",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Response has items and pagination', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property('items');",
+                  "    pm.expect(body.items).to.be.an('array');",
+                  "});",
+                  "pm.test('Search results match query', () => {",
+                  "    const body = pm.response.json();",
+                  "    const query = pm.request.url.getQueryString();",
+                  "    console.log('Search returned', body.items.length, 'results for query:', query);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/users?search=tester&page=1&limit=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "users"],
+              "query": [
+                { "key": "search", "value": "tester" },
+                { "key": "page",   "value": "1" },
+                { "key": "limit",  "value": "5" }
+              ]
+            }
+          }
+        },
+
+        {
+          "name": "Reset User Password (Admin)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const targetId = pm.collectionVariables.get('targetUserId');",
+                  "if (!targetId) {",
+                  "    console.warn('targetUserId is empty. Run \"List All Users\" first to populate it.');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Password reset success', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.message).to.eql('Password reset successfully');",
+                  "    pm.expect(body).to.have.property('user');",
+                  "    pm.expect(body.user).to.have.all.keys('id', 'name', 'email', 'role');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"newpassword123\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/users/{{targetUserId}}/reset-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "users", "{{targetUserId}}", "reset-password"]
+            },
+            "description": "Resets a target user's password (ADMIN only). Requires `targetUserId` — run List All Users first."
+          }
+        },
+
+        {
+          "name": "Delete User (Admin)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const targetId = pm.collectionVariables.get('targetUserId');",
+                  "if (!targetId) {",
+                  "    console.warn('targetUserId is empty. Run \"List All Users\" first.');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Delete success message', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.message).to.eql('User deleted successfully');",
+                  "});",
+                  "pm.collectionVariables.set('targetUserId', '');",
+                  "console.log('targetUserId cleared after deletion.');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/users/{{targetUserId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "users", "{{targetUserId}}"]
+            },
+            "description": "Deletes a user (ADMIN only). Cannot delete self or the last admin account."
+          }
+        },
+
+        {
+          "name": "[Error] Delete Self",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400 Bad Request', () => pm.response.to.have.status(400));",
+                  "pm.test('Cannot delete own account', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.message).to.include('cannot delete your own account');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/users/{{adminUserId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "users", "{{adminUserId}}"]
+            },
+            "description": "Intentionally tries to delete self — should return 400."
+          }
+        },
+
+        {
+          "name": "[Error] List Users - Tester (Forbidden)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Temporarily use a fake/tester token to test role guard.",
+                  "// Replace the Authorization header value with a tester token if you have one.",
+                  "console.log('This test needs a tester Bearer token in the Authorization header override.');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401 or 403', () => {",
+                  "    pm.expect([401, 403]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer PASTE_TESTER_TOKEN_HERE" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "users"]
+            },
+            "description": "Tests role guard — TESTER tokens should be rejected. Replace the header with an actual tester token."
+          }
+        }
+
+      ]
+    },
+
+    {
+      "name": "Projects",
+      "description": "Full CRUD for projects. All requests require a valid Bearer token.",
+      "item": [
+
+        {
+          "name": "Create Project",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Response has project fields', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.all.keys('id', 'name', 'description', 'status', 'createdById', 'createdAt', 'updatedAt');",
+                  "    pm.expect(body.status).to.eql('ACTIVE');",
+                  "    pm.expect(body.name).to.eql('Automation Test Project');",
+                  "});",
+                  "pm.test('Saves projectId to collection variable', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.collectionVariables.set('projectId', body.id);",
+                  "    pm.expect(body.id).to.be.a('string').and.not.empty;",
+                  "    console.log('projectId set to:', body.id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Automation Test Project\",\n  \"description\": \"Practice project for API and UI automation testing\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/projects",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects"]
+            },
+            "description": "Creates a new project. Saves the generated `id` to `projectId` collection variable."
+          }
+        },
+
+        {
+          "name": "List Projects",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Response has items and pagination', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property('items');",
+                  "    pm.expect(body).to.have.property('pagination');",
+                  "    pm.expect(body.items).to.be.an('array');",
+                  "    pm.expect(body.pagination).to.have.all.keys('page', 'limit', 'total', 'pages');",
+                  "});",
+                  "pm.test('Pagination values are numbers', () => {",
+                  "    const p = pm.response.json().pagination;",
+                  "    pm.expect(p.page).to.be.a('number');",
+                  "    pm.expect(p.total).to.be.a('number');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/projects?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects"],
+              "query": [
+                { "key": "page",  "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            }
+          }
+        },
+
+        {
+          "name": "Get Project by ID",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.collectionVariables.get('projectId')) {",
+                  "    console.warn('projectId is empty. Run Create Project first.');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns correct project', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.id).to.eql(pm.collectionVariables.get('projectId'));",
+                  "    pm.expect(body).to.have.all.keys('id', 'name', 'description', 'status', 'createdById', 'createdAt', 'updatedAt');",
+                  "    pm.expect(['ACTIVE', 'ARCHIVED']).to.include(body.status);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/{{projectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects", "{{projectId}}"]
+            }
+          }
+        },
+
+        {
+          "name": "Update Project",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Project updated with new values', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.name).to.eql('Updated: Automation Project');",
+                  "    pm.expect(body.description).to.eql('Updated description for automation tests');",
+                  "    pm.expect(body.status).to.eql('ACTIVE');",
+                  "    pm.expect(body.id).to.eql(pm.collectionVariables.get('projectId'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated: Automation Project\",\n  \"description\": \"Updated description for automation tests\",\n  \"status\": \"ACTIVE\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/{{projectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects", "{{projectId}}"]
+            }
+          }
+        },
+
+        {
+          "name": "Archive Project (Status Update)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Project status is ARCHIVED', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.status).to.eql('ARCHIVED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated: Automation Project\",\n  \"description\": \"Updated description for automation tests\",\n  \"status\": \"ARCHIVED\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/{{projectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects", "{{projectId}}"]
+            }
+          }
+        },
+
+        {
+          "name": "[Error] Get Project - Not Found",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 404 or 500', () => {",
+                  "    pm.expect([404, 500]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test('Error message present', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property('message');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/nonexistentprojectid000",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects", "nonexistentprojectid000"]
+            }
+          }
+        },
+
+        {
+          "name": "Delete Project",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "console.warn('WARNING: Deleting this project will cascade-delete all its suites, test cases, and runs.');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Delete success message', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.message).to.eql('Project deleted successfully');",
+                  "});",
+                  "pm.collectionVariables.set('projectId', '');",
+                  "pm.collectionVariables.set('suiteId', '');",
+                  "pm.collectionVariables.set('testCaseId', '');",
+                  "pm.collectionVariables.set('runId', '');",
+                  "console.log('Project deleted. Related IDs cleared.');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/{{projectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "projects", "{{projectId}}"]
+            },
+            "description": "Deletes the project. Cascades to all suites, test cases, and runs belonging to it. Clears related collection variables."
+          }
+        }
+
+      ]
+    },
+
+    {
+      "name": "Suites",
+      "description": "Test suites are scoped to a project. Requires `projectId` to be set. Note: no GET by suite ID endpoint exists — use List Suites by Project.",
+      "item": [
+
+        {
+          "name": "Create Suite",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.collectionVariables.get('projectId')) {",
+                  "    console.warn('projectId is empty. Create a project first.');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Response has suite fields', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.all.keys('id', 'name', 'description', 'projectId', 'createdAt', 'updatedAt');",
+                  "    pm.expect(body.projectId).to.eql(pm.collectionVariables.get('projectId'));",
+                  "    pm.expect(body.name).to.eql('Login & Auth Suite');",
+                  "});",
+                  "pm.test('Saves suiteId', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.collectionVariables.set('suiteId', body.id);",
+                  "    pm.expect(body.id).to.be.a('string').and.not.empty;",
+                  "    console.log('suiteId set to:', body.id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Login & Auth Suite\",\n  \"description\": \"Tests covering authentication flows\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/suites/project/{{projectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "suites", "project", "{{projectId}}"]
+            },
+            "description": "Creates a test suite under the specified project. Saves `id` to `suiteId`."
+          }
+        },
+
+        {
+          "name": "List Suites by Project",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns array of suites', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.be.an('array');",
+                  "});",
+                  "pm.test('Suite objects have expected fields', () => {",
+                  "    const body = pm.response.json();",
+                  "    if (body.length > 0) {",
+                  "        pm.expect(body[0]).to.have.all.keys('id', 'name', 'description', 'projectId', 'createdAt', 'updatedAt');",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/suites/project/{{projectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "suites", "project", "{{projectId}}"]
+            }
+          }
+        },
+
+        {
+          "name": "Update Suite",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Suite updated with new name', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.name).to.eql('Updated: Auth & Session Suite');",
+                  "    pm.expect(body.id).to.eql(pm.collectionVariables.get('suiteId'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated: Auth & Session Suite\",\n  \"description\": \"Updated: covers login, logout, and token refresh\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/suites/{{suiteId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "suites", "{{suiteId}}"]
+            }
+          }
+        },
+
+        {
+          "name": "Delete Suite",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Delete success message', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.message).to.eql('Suite deleted successfully');",
+                  "});",
+                  "pm.collectionVariables.set('suiteId', '');",
+                  "pm.collectionVariables.set('testCaseId', '');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/suites/{{suiteId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "suites", "{{suiteId}}"]
+            },
+            "description": "Deletes the suite. Cascades to all test cases in the suite."
+          }
+        }
+
+      ]
+    },
+
+    {
+      "name": "Test Cases",
+      "description": "Test cases are scoped to a suite. Requires `suiteId` to be set. Note: no GET by test case ID endpoint exists — use List Test Cases by Suite.",
+      "item": [
+
+        {
+          "name": "Create Test Case",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.collectionVariables.get('suiteId')) {",
+                  "    console.warn('suiteId is empty. Create a suite first.');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Response has test case fields', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.all.keys('id', 'title', 'description', 'steps', 'expected', 'priority', 'status', 'tags', 'suiteId', 'createdById', 'createdAt', 'updatedAt');",
+                  "    pm.expect(body.priority).to.eql('HIGH');",
+                  "    pm.expect(body.status).to.eql('ACTIVE');",
+                  "    pm.expect(body.tags).to.be.an('array');",
+                  "    pm.expect(body.suiteId).to.eql(pm.collectionVariables.get('suiteId'));",
+                  "});",
+                  "pm.test('Saves testCaseId', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.collectionVariables.set('testCaseId', body.id);",
+                  "    pm.expect(body.id).to.be.a('string').and.not.empty;",
+                  "    console.log('testCaseId set to:', body.id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Verify successful admin login\",\n  \"description\": \"Ensure a valid admin user can log in and receive tokens\",\n  \"steps\": \"1. Send POST /api/auth/login with valid email and password\\n2. Check response status\\n3. Verify tokens in response\",\n  \"expected\": \"HTTP 200 with user object, accessToken, and refreshToken\",\n  \"priority\": \"HIGH\",\n  \"tags\": [\"auth\", \"smoke\", \"login\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/testcases/suite/{{suiteId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "testcases", "suite", "{{suiteId}}"]
+            },
+            "description": "Creates a test case under the specified suite. Saves `id` to `testCaseId`. Priority options: LOW, MEDIUM, HIGH, CRITICAL."
+          }
+        },
+
+        {
+          "name": "Create Test Case - Low Priority",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Priority and defaults correct', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.priority).to.eql('LOW');",
+                  "    pm.expect(body.status).to.eql('ACTIVE');",
+                  "    pm.expect(body.tags).to.be.an('array').and.be.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Check login page renders\",\n  \"description\": \"Verify the login page loads without errors\",\n  \"steps\": \"1. Navigate to /login\",\n  \"expected\": \"Login form is visible\",\n  \"priority\": \"LOW\",\n  \"tags\": []\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/testcases/suite/{{suiteId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "testcases", "suite", "{{suiteId}}"]
+            }
+          }
+        },
+
+        {
+          "name": "List Test Cases by Suite",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Response has items and pagination', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property('items');",
+                  "    pm.expect(body).to.have.property('pagination');",
+                  "    pm.expect(body.items).to.be.an('array');",
+                  "});",
+                  "pm.test('Test case objects have expected fields', () => {",
+                  "    const body = pm.response.json();",
+                  "    if (body.items.length > 0) {",
+                  "        const tc = body.items[0];",
+                  "        pm.expect(tc).to.have.all.keys('id', 'title', 'description', 'steps', 'expected', 'priority', 'status', 'tags', 'suiteId', 'createdById', 'createdAt', 'updatedAt');",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/testcases/suite/{{suiteId}}?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "testcases", "suite", "{{suiteId}}"],
+              "query": [
+                { "key": "page",  "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            }
+          }
+        },
+
+        {
+          "name": "Update Test Case",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Test case updated', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.title).to.eql('Updated: Verify admin login with valid credentials');",
+                  "    pm.expect(body.priority).to.eql('CRITICAL');",
+                  "    pm.expect(body.status).to.eql('ACTIVE');",
+                  "    pm.expect(body.id).to.eql(pm.collectionVariables.get('testCaseId'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated: Verify admin login with valid credentials\",\n  \"description\": \"Ensures admin login returns 200 with both tokens\",\n  \"steps\": \"1. POST /api/auth/login\\n2. Verify 200\\n3. Check accessToken and refreshToken in body\",\n  \"expected\": \"HTTP 200, user object with role ADMIN, non-empty tokens\",\n  \"priority\": \"CRITICAL\",\n  \"status\": \"ACTIVE\",\n  \"tags\": [\"auth\", \"smoke\", \"regression\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/testcases/{{testCaseId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "testcases", "{{testCaseId}}"]
+            }
+          }
+        },
+
+        {
+          "name": "Deprecate Test Case",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Status is DEPRECATED', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.status).to.eql('DEPRECATED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated: Verify admin login with valid credentials\",\n  \"status\": \"DEPRECATED\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/testcases/{{testCaseId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "testcases", "{{testCaseId}}"]
+            },
+            "description": "Updates test case status to DEPRECATED. Status options: ACTIVE, DEPRECATED."
+          }
+        },
+
+        {
+          "name": "[Error] Create Test Case - Missing title",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400 Bad Request', () => pm.response.to.have.status(400));",
+                  "pm.test('Returns validation errors', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property('errors');",
+                  "    pm.expect(body.errors).to.be.an('array').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"No title provided\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/testcases/suite/{{suiteId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "testcases", "suite", "{{suiteId}}"]
+            }
+          }
+        },
+
+        {
+          "name": "Delete Test Case",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Delete success message', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.message).to.eql('Test case deleted successfully');",
+                  "});",
+                  "pm.collectionVariables.set('testCaseId', '');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/testcases/{{testCaseId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "testcases", "{{testCaseId}}"]
+            }
+          }
+        }
+
+      ]
+    },
+
+    {
+      "name": "Runs",
+      "description": "Test runs are scoped to a project. Requires `projectId`. To submit results, `testCaseId` must belong to the run's project.",
+      "item": [
+
+        {
+          "name": "Create Run",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.collectionVariables.get('projectId')) {",
+                  "    console.warn('projectId is empty. Create a project first.');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Response has run fields', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.all.keys('id', 'name', 'description', 'status', 'projectId', 'createdById', 'createdAt', 'updatedAt');",
+                  "    pm.expect(body.status).to.eql('IN_PROGRESS');",
+                  "    pm.expect(body.projectId).to.eql(pm.collectionVariables.get('projectId'));",
+                  "});",
+                  "pm.test('Saves runId', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.collectionVariables.set('runId', body.id);",
+                  "    pm.expect(body.id).to.be.a('string').and.not.empty;",
+                  "    console.log('runId set to:', body.id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Sprint 1 Regression Run\",\n  \"description\": \"Full regression suite for sprint 1 release\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/runs/project/{{projectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "runs", "project", "{{projectId}}"]
+            },
+            "description": "Creates a new test run under the project. Default status is IN_PROGRESS. Saves `id` to `runId`."
+          }
+        },
+
+        {
+          "name": "List Runs by Project",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns array of runs', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.be.an('array');",
+                  "});",
+                  "pm.test('Run objects have expected fields', () => {",
+                  "    const body = pm.response.json();",
+                  "    if (body.length > 0) {",
+                  "        const run = body[0];",
+                  "        pm.expect(run).to.have.all.keys('id', 'name', 'description', 'status', 'projectId', 'createdById', 'createdAt', 'updatedAt');",
+                  "        pm.expect(['IN_PROGRESS', 'COMPLETED', 'ABORTED']).to.include(run.status);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/runs/project/{{projectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "runs", "project", "{{projectId}}"]
+            }
+          }
+        },
+
+        {
+          "name": "Get Run with Results",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Response has run fields', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property('id');",
+                  "    pm.expect(body).to.have.property('name');",
+                  "    pm.expect(body).to.have.property('status');",
+                  "    pm.expect(body).to.have.property('results');",
+                  "    pm.expect(body).to.have.property('summary');",
+                  "    pm.expect(body.results).to.be.an('array');",
+                  "});",
+                  "pm.test('Summary has PASS/FAIL/SKIP/BLOCKED counts', () => {",
+                  "    const summary = pm.response.json().summary;",
+                  "    pm.expect(summary).to.have.all.keys('PASS', 'FAIL', 'SKIP', 'BLOCKED');",
+                  "    Object.values(summary).forEach(v => pm.expect(v).to.be.a('number'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/runs/{{runId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "runs", "{{runId}}"]
+            },
+            "description": "Returns the run with all test case results. PENDING results are included for test cases without submitted results."
+          }
+        },
+
+        {
+          "name": "Submit Test Result (PASS)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.collectionVariables.get('testCaseId')) {",
+                  "    console.warn('testCaseId is empty. Create a test case in the same project first.');",
+                  "}",
+                  "if (!pm.collectionVariables.get('runId')) {",
+                  "    console.warn('runId is empty. Create a run first.');",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Result saved with PASS status', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.all.keys('id', 'status', 'comment', 'testCaseId', 'runId', 'executedAt');",
+                  "    pm.expect(body.status).to.eql('PASS');",
+                  "    pm.expect(body.testCaseId).to.eql(pm.collectionVariables.get('testCaseId'));",
+                  "    pm.expect(body.runId).to.eql(pm.collectionVariables.get('runId'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"testCaseId\": \"{{testCaseId}}\",\n  \"status\": \"PASS\",\n  \"comment\": \"All steps executed successfully\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/runs/{{runId}}/results",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "runs", "{{runId}}", "results"]
+            },
+            "description": "Submits or updates a test result for a specific test case within a run. Status options: PASS, FAIL, SKIP, BLOCKED. Upserts — calling again updates the existing result."
+          }
+        },
+
+        {
+          "name": "Submit Test Result (FAIL)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Result updated to FAIL', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.status).to.eql('FAIL');",
+                  "    pm.expect(body.comment).to.eql('Step 2 returned 500 instead of 200');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"testCaseId\": \"{{testCaseId}}\",\n  \"status\": \"FAIL\",\n  \"comment\": \"Step 2 returned 500 instead of 200\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/runs/{{runId}}/results",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "runs", "{{runId}}", "results"]
+            },
+            "description": "Updates same test case result to FAIL — demonstrates upsert behavior."
+          }
+        },
+
+        {
+          "name": "[Error] Submit Result - Invalid Status",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400 Bad Request', () => pm.response.to.have.status(400));",
+                  "pm.test('Validation error for invalid status', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property('errors');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"testCaseId\": \"{{testCaseId}}\",\n  \"status\": \"UNKNOWN_STATUS\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/runs/{{runId}}/results",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "runs", "{{runId}}", "results"]
+            }
+          }
+        },
+
+        {
+          "name": "Update Run (Complete)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Run status updated to COMPLETED', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.status).to.eql('COMPLETED');",
+                  "    pm.expect(body.id).to.eql(pm.collectionVariables.get('runId'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Sprint 1 Regression Run - DONE\",\n  \"description\": \"Completed regression run for sprint 1\",\n  \"status\": \"COMPLETED\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/runs/{{runId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "runs", "{{runId}}"]
+            },
+            "description": "Updates run metadata and status. Status options: IN_PROGRESS, COMPLETED, ABORTED."
+          }
+        },
+
+        {
+          "name": "Delete Run",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Delete success message', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.message).to.eql('Run deleted successfully');",
+                  "});",
+                  "pm.collectionVariables.set('runId', '');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/runs/{{runId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "runs", "{{runId}}"]
+            }
+          }
+        }
+
+      ]
+    },
+
+    {
+      "name": "Dashboard",
+      "description": "Aggregated stats across all projects. Requires valid Bearer token.",
+      "item": [
+
+        {
+          "name": "Get Dashboard Stats",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Response has all stat fields', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.all.keys(",
+                  "        'totalProjects', 'activeProjects', 'totalTestCases',",
+                  "        'totalRuns', 'activeRuns', 'passRatePercent',",
+                  "        'recentRuns', 'resultBreakdown'",
+                  "    );",
+                  "});",
+                  "pm.test('Numeric stats are numbers', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.totalProjects).to.be.a('number');",
+                  "    pm.expect(body.activeProjects).to.be.a('number');",
+                  "    pm.expect(body.totalTestCases).to.be.a('number');",
+                  "    pm.expect(body.totalRuns).to.be.a('number');",
+                  "    pm.expect(body.passRatePercent).to.be.a('number');",
+                  "    pm.expect(body.passRatePercent).to.be.within(0, 100);",
+                  "});",
+                  "pm.test('Result breakdown has correct keys', () => {",
+                  "    const bd = pm.response.json().resultBreakdown;",
+                  "    pm.expect(bd).to.have.all.keys('PASS', 'FAIL', 'SKIP', 'BLOCKED');",
+                  "    Object.values(bd).forEach(v => pm.expect(v).to.be.a('number').and.be.at.least(0));",
+                  "});",
+                  "pm.test('recentRuns is an array (max 5)', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.recentRuns).to.be.an('array');",
+                  "    pm.expect(body.recentRuns.length).to.be.at.most(5);",
+                  "});",
+                  "pm.test('activeProjects <= totalProjects', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.activeProjects).to.be.at.most(body.totalProjects);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/dashboard/stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "dashboard", "stats"]
+            },
+            "description": "Returns aggregated statistics: project counts, test case counts, run counts, pass rate percentage, result breakdown (PASS/FAIL/SKIP/BLOCKED), and the 5 most recent runs."
+          }
+        },
+
+        {
+          "name": "[Error] Dashboard - No Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401 Unauthorized', () => pm.response.to.have.status(401));",
+                  "pm.test('Error message present', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property('message');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/dashboard/stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "dashboard", "stats"]
+            }
+          }
+        }
+
+      ]
+    }
+
+  ]
+}

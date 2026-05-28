@@ -1,0 +1,86 @@
+{
+  "id": "testhub-env-production",
+  "name": "testHub - Production",
+  "values": [
+    {
+      "key": "baseUrl",
+      "value": "https://testhub-gateway.onrender.com",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "secret",
+      "enabled": true
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "secret",
+      "enabled": true
+    },
+    {
+      "key": "adminEmail",
+      "value": "your-admin@email.com",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "adminPassword",
+      "value": "yourpassword",
+      "type": "secret",
+      "enabled": true
+    },
+    {
+      "key": "testerEmail",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "testerPassword",
+      "value": "tester123",
+      "type": "secret",
+      "enabled": true
+    },
+    {
+      "key": "adminUserId",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "targetUserId",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "projectId",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "suiteId",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "testCaseId",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    },
+    {
+      "key": "runId",
+      "value": "",
+      "type": "default",
+      "enabled": true
+    }
+  ],
+  "_postman_variable_scope": "environment",
+  "_postman_exported_using": "Claude Code"
+}
