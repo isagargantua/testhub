@@ -24,3 +24,24 @@ export function warmupServices() {
     });
   });
 }
+
+// Services sleep after ~15 min idle. If the user leaves the tab open and comes
+// back later, the next click would cold-start a service. Re-warm on tab focus
+// (throttled to once per 10 min) so the services are already waking by the time
+// the user interacts — turning a would-be failure into, at worst, a short wait.
+let lastWarmAt = Date.now();
+
+if (typeof window !== "undefined") {
+  const maybeRewarm = () => {
+    if (document.visibilityState && document.visibilityState !== "visible") {
+      return;
+    }
+    if (Date.now() - lastWarmAt > 10 * 60 * 1000) {
+      lastWarmAt = Date.now();
+      warmupServices();
+    }
+  };
+
+  window.addEventListener("focus", maybeRewarm);
+  document.addEventListener("visibilitychange", maybeRewarm);
+}

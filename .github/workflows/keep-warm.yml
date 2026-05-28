@@ -11,14 +11,16 @@ name: Keep services warm
 # below to match when you actually test. Every 14 min stays under the 15-min
 # sleep threshold while minimizing pings.
 #
-# Cron is in UTC. The window below is 14:00–19:59 UTC = ~19:30–01:29 IST,
-# covering a late-night 8pm–1am IST practice session (services warm slightly
-# before and after). ~3 services x 6 hrs x 30 days = ~540 service-hrs, well
-# within the free cap.
+# Cron is in UTC. The window below is 14:00–21:59 UTC = ~19:30–03:29 IST,
+# covering a late-night 7:30pm–3:30am IST practice session (services warm
+# slightly before and after). ~3 services x 8 hrs x 30 days = ~720 service-hrs,
+# just under the ~750 free cap. Do NOT widen this further or you risk Render
+# suspending the services mid-month once the 750 hrs are spent. If you change
+# your hours, shift the window rather than extending it.
 
 on:
   schedule:
-    - cron: "*/14 14-19 * * *"
+    - cron: "*/14 14-21 * * *"
   workflow_dispatch: {} # lets you trigger a manual warm-up from the Actions tab
 
 jobs:

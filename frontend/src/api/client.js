@@ -11,21 +11,31 @@ const apiUrl = (
 
 const client = axios.create({
   baseURL: apiUrl,
+  // Per-request timeout. Free-tier cold start is ~24s for one service, up to
+  // ~50s when the gateway AND an upstream are both asleep. 60s covers a stacked
+  // cold start; if a request hangs past that, it aborts and the retry below
+  // hits a now-warmer service rather than blocking the UI forever.
+  timeout: 60000,
 });
 
-// Free-tier services sleep after ~15 min idle and take ~24s to wake. A request
-// that lands during a cold start fails with a network error or a 502/503/504
-// from Render's edge before the service is ready. Rather than surface that as a
-// hard failure, retry transparently with backoff so the call simply waits for
-// the service to come up. Total budget ~90s, comfortably covering a cold start.
-const MAX_COLD_START_RETRIES = 7;
+// Free-tier services (gateway, auth, core) sleep after ~15 min idle and take
+// ~24s each to wake. A request landing during a cold start fails with a network
+// error, an aborted timeout, or ANY 5xx from the gateway/edge before the
+// upstream is ready. Rather than surface that as a hard failure, retry
+// transparently with backoff so the call simply waits for the service to come
+// up. Budget ~95s of backoff (plus per-attempt time), comfortably covering even
+// a stacked gateway+upstream cold start.
+const MAX_COLD_START_RETRIES = 8;
 const RETRY_DELAY_MS = (attempt) => Math.min(5000 * attempt, 15000);
 
 function isColdStartError(error) {
-  const status = error.response?.status;
-  // No response at all = network error/timeout. 502/503/504 = edge couldn't
-  // reach the waking service. All are transient cold-start signals.
-  return !error.response || status === 502 || status === 503 || status === 504;
+  // No response = network error OR our per-request timeout firing while a
+  // service is still booting. Any 5xx = the gateway couldn't get a clean
+  // response from a cold/booting upstream (it returns 500/502/503/504 depending
+  // on how the connection failed). On free-tier these are all transient.
+  if (!error.response) return true;
+  const status = error.response.status;
+  return status >= 500 && status < 600;
 }
 
 let refreshRequest = null;
