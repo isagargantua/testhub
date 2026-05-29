@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { wakeServices } from "../api/warmup";
 
@@ -79,6 +79,7 @@ const HEALTH = {
 
 export default function Sidebar() {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const [collapsed, setCollapsed] = useState(
     () => typeof window !== "undefined" &&
@@ -229,8 +230,23 @@ export default function Sidebar() {
         )}
       </nav>
 
-      {/* Filler section (expanded only): live system status + wake + shortcut */}
-      <div className={`mt-6 flex-1 flex flex-col ${hideWhenCollapsed}`}>
+      {/* Filler section (expanded only): quick actions, status, resources */}
+      <div className={`mt-6 flex-1 flex flex-col gap-4 ${hideWhenCollapsed}`}>
+        {/* Quick actions */}
+        <div className="rounded-lg border border-white/10 bg-white/[0.04] px-4 py-3">
+          <div className="text-[0.6rem] font-semibold uppercase tracking-[0.22em] text-slate-500 mb-2">
+            Quick actions
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate("/projects")}
+            className="w-full rounded-md bg-[#4f46e5] px-3 py-2 text-xs font-semibold text-white hover:bg-[#4338ca] transition"
+          >
+            + New Project
+          </button>
+        </div>
+
+        {/* System status */}
         <div className="rounded-lg border border-white/10 bg-white/[0.04] px-4 py-3">
           <div className="text-[0.6rem] font-semibold uppercase tracking-[0.22em] text-slate-500 mb-2">
             System status
@@ -249,7 +265,25 @@ export default function Sidebar() {
           </button>
         </div>
 
-        <div className="mt-4 px-2 text-[0.65rem] leading-relaxed text-slate-500">
+        {/* Resources */}
+        <div className="rounded-lg border border-white/10 bg-white/[0.04] px-4 py-3">
+          <div className="text-[0.6rem] font-semibold uppercase tracking-[0.22em] text-slate-500 mb-2">
+            Resources
+          </div>
+          <a
+            href={docsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 text-sm font-medium text-slate-300 hover:text-white transition"
+          >
+            API Docs
+            <span aria-hidden className="text-[0.7rem] text-slate-500">
+              &#8599;
+            </span>
+          </a>
+        </div>
+
+        <div className="px-2 text-[0.65rem] leading-relaxed text-slate-500">
           Tip: press{" "}
           <span className="rounded border border-white/10 bg-white/[0.06] px-1.5 py-0.5 font-mono text-[0.6rem] text-slate-300">
             Ctrl/⌘ + B

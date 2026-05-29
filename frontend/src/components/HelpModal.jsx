@@ -208,7 +208,9 @@ export default function HelpModal({ open, onClose }) {
     >
       <div
         className="card w-full flex flex-col"
-        style={{ maxWidth: 720, maxHeight: "90vh" }}
+        // Fixed height so the modal stays the same size on every tab — short
+        // sections no longer shrink it and long ones (Runs) scroll internally.
+        style={{ maxWidth: 720, height: "min(640px, 85vh)" }}
       >
         {/* Header */}
         <div className="flex items-center justify-between gap-4 flex-shrink-0 mb-5">
