@@ -210,7 +210,7 @@ export default function TestRuns() {
             {visible.map((run) => (
               <div
                 key={run.id}
-                className="card cursor-pointer transition duration-200 hover:-translate-y-1"
+                className="card card-interactive"
                 onClick={() => navigate(`/runs/${run.id}`)}
               >
                 <div className="flex items-start justify-between gap-3">
@@ -332,7 +332,6 @@ export default function TestRuns() {
                   if (tcs.length === 0) return null;
                   const suiteIds = tcs.map((tc) => tc.id);
                   const allChecked = suiteIds.every((id) => selectedIds.includes(id));
-                  const someChecked = suiteIds.some((id) => selectedIds.includes(id));
 
                   return (
                     <div key={suite.id} className="card-soft">

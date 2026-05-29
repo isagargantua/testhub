@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import HelpModal from "./HelpModal";
+import ThemeToggle from "./ThemeToggle";
 
 export default function Navbar() {
   const { user, logout } = useAuth();
@@ -27,6 +28,7 @@ export default function Navbar() {
             <div className="hidden rounded-full border border-[rgba(80,67,43,0.1)] bg-white/65 px-4 py-2 text-sm text-[#57483a] shadow-sm md:block">
               Session active
             </div>
+            <ThemeToggle />
             <button
               onClick={() => setHelpOpen(true)}
               className="btn-secondary"

@@ -282,3 +282,209 @@ body::after {
     flex-direction: column;
   }
 }
+
+/* ===========================================================================
+   Interactive cards (Projects / Test Suites / Test Runs)
+   A premium hover state so a clickable card clearly reads as "selectable":
+   it lifts, gains an accent ring + border, and a deeper shadow.
+   =========================================================================== */
+.card-interactive {
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.card-interactive:hover {
+  transform: translateY(-4px);
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 1px var(--accent),
+    0 18px 44px rgba(79, 70, 229, 0.20),
+    var(--shadow-lg);
+}
+
+.card-interactive:active {
+  transform: translateY(-1px);
+}
+
+/* ===========================================================================
+   DARK MODE
+   Activated by data-theme="dark" on <html>. This block is purely additive —
+   light mode is never touched. We (1) flip the design-token variables, (2)
+   restyle the component classes whose colours were hard-coded, and (3) remap
+   the specific arbitrary Tailwind colour classes used inline across the pages.
+   =========================================================================== */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  background: #0b1020;
+
+  --bg: #0b1020;
+  --surface: #121829;
+  --surface-dark: #0b1020;
+  --line: rgba(255, 255, 255, 0.10);
+  --line-strong: rgba(255, 255, 255, 0.20);
+  --text: #e9e5df;
+  --muted: #9aa3b4;
+  --accent: #6366f1;
+  --accent-strong: #818cf8;
+  --accent-soft: rgba(99, 102, 241, 0.18);
+  --shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.55);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.40);
+}
+
+:root[data-theme="dark"] body {
+  color: var(--text);
+}
+
+:root[data-theme="dark"] .page-shell {
+  background:
+    linear-gradient(135deg, rgba(99, 102, 241, 0.10), transparent 48%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0));
+}
+
+:root[data-theme="dark"] .premium-grid {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+}
+
+:root[data-theme="dark"] .app-panel {
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .card {
+  background: #151c2e;
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .card-soft {
+  background: #1b2236;
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .btn-secondary {
+  background: #1b2236;
+  color: var(--text);
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .btn-secondary:hover {
+  background: #232c44;
+  border-color: var(--line-strong);
+}
+
+:root[data-theme="dark"] .input,
+:root[data-theme="dark"] .textarea {
+  background: #151c2e;
+  color: var(--text);
+  border-color: var(--line);
+  box-shadow: none;
+}
+
+:root[data-theme="dark"] .input::placeholder,
+:root[data-theme="dark"] .textarea::placeholder {
+  color: #6b7385;
+}
+
+/* --- Inline text colours: headings / near-black --------------------------- */
+:root[data-theme="dark"] .text-\[\#2f2419\],
+:root[data-theme="dark"] .text-\[\#2d241a\],
+:root[data-theme="dark"] .text-\[\#0f172a\] {
+  color: #ece8e2;
+}
+
+/* --- Inline text colours: body (dark warm) -------------------------------- */
+:root[data-theme="dark"] .text-\[\#5c4a36\],
+:root[data-theme="dark"] .text-\[\#4a3f35\],
+:root[data-theme="dark"] .text-\[\#54473a\],
+:root[data-theme="dark"] .text-\[\#57483a\] {
+  color: #d6d0c6;
+}
+
+/* --- Inline text colours: muted (warm) ------------------------------------ */
+:root[data-theme="dark"] .text-\[\#75675a\],
+:root[data-theme="dark"] .text-\[\#6f6255\],
+:root[data-theme="dark"] .text-\[\#776a5c\],
+:root[data-theme="dark"] .text-\[\#666052\],
+:root[data-theme="dark"] .text-\[\#7b6a58\],
+:root[data-theme="dark"] .text-\[\#7d6f60\] {
+  color: #aaa298;
+}
+
+/* --- Inline text colours: faint + slate muted ----------------------------- */
+:root[data-theme="dark"] .text-\[\#8a7a69\] {
+  color: #8f877b;
+}
+:root[data-theme="dark"] .text-\[\#64748b\] {
+  color: #94a3b8;
+}
+
+/* --- Inline text colours: status / accents (lightened for contrast) ------- */
+:root[data-theme="dark"] .text-\[\#8b4335\],
+:root[data-theme="dark"] .text-\[\#8e3f31\],
+:root[data-theme="dark"] .text-\[\#8c4638\] {
+  color: #f0a89c;
+}
+:root[data-theme="dark"] .text-\[\#466451\] {
+  color: #80c8a2;
+}
+:root[data-theme="dark"] .text-\[\#a25a30\],
+:root[data-theme="dark"] .text-\[\#a55d31\],
+:root[data-theme="dark"] .text-\[\#9d552c\],
+:root[data-theme="dark"] .text-\[\#946d2f\] {
+  color: #e3ab6c;
+}
+:root[data-theme="dark"] .text-\[\#4f46e5\] {
+  color: #8b93f8;
+}
+:root[data-theme="dark"] .text-\[\#4338ca\] {
+  color: #a5b4fc;
+}
+:root[data-theme="dark"] .text-\[\#555365\] {
+  color: #b3b1cb;
+}
+:root[data-theme="dark"] .text-\[\#455d87\] {
+  color: #9db3d8;
+}
+
+/* --- Inline warm borders / soft fills ------------------------------------- */
+:root[data-theme="dark"] .border-\[rgba\(80\2c 67\2c 43\2c 0\.06\)\],
+:root[data-theme="dark"] .border-\[rgba\(80\2c 67\2c 43\2c 0\.08\)\],
+:root[data-theme="dark"] .border-\[rgba\(80\2c 67\2c 43\2c 0\.1\)\],
+:root[data-theme="dark"] .border-\[rgba\(80\2c 67\2c 43\2c 0\.12\)\] {
+  border-color: rgba(255, 255, 255, 0.10);
+}
+:root[data-theme="dark"] .bg-\[rgba\(80\2c 67\2c 43\2c 0\.05\)\],
+:root[data-theme="dark"] .bg-\[rgba\(80\2c 67\2c 43\2c 0\.08\)\],
+:root[data-theme="dark"] .bg-\[rgba\(80\2c 67\2c 43\2c 0\.1\)\] {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Top navbar bar (cream in light mode) -> translucent dark. */
+:root[data-theme="dark"] .bg-\[rgba\(255\2c 251\2c 245\2c 0\.52\)\] {
+  background-color: rgba(18, 24, 41, 0.72);
+}
+
+/* Result status text (PASS/FAIL/SKIP/BLOCKED) -> brighter on dark so the
+   small status chips stay legible against dark surfaces. */
+:root[data-theme="dark"] .text-\[\#166534\] {
+  color: #4ade80;
+}
+:root[data-theme="dark"] .text-\[\#991b1b\] {
+  color: #f87171;
+}
+:root[data-theme="dark"] .text-\[\#92400e\] {
+  color: #fbbf24;
+}
+:root[data-theme="dark"] .text-\[\#4c1d95\] {
+  color: #a78bfa;
+}
+
+/* Navbar chips ("Session active" + the role pill) use a near-white fill in
+   light mode. In dark mode that left light text on a light pill (invisible),
+   so darken the pill to a translucent surface — the (now light) text reads. */
+:root[data-theme="dark"] .bg-white\/60,
+:root[data-theme="dark"] .bg-white\/65 {
+  background-color: rgba(255, 255, 255, 0.08);
+}

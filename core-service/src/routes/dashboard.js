@@ -17,7 +17,7 @@ router.get("/stats", async (req, res) => {
       activeProjects,
       activeRuns,
       recentRuns,
-      results,
+      grouped,
     ] = await Promise.all([
       prisma.project.count(),
       prisma.testCase.count(),
@@ -28,13 +28,20 @@ router.get("/stats", async (req, res) => {
         orderBy: { createdAt: "desc" },
         take: 5,
       }),
-      prisma.testResult.findMany(),
+      // Count results per status in the DB instead of pulling every row into
+      // memory — scales with the number of statuses (4), not the row count.
+      prisma.testResult.groupBy({
+        by: ["status"],
+        _count: { _all: true },
+      }),
     ]);
 
     const breakdown = { PASS: 0, FAIL: 0, SKIP: 0, BLOCKED: 0 };
 
-    results.forEach((result) => {
-      breakdown[result.status]++;
+    grouped.forEach((row) => {
+      if (breakdown[row.status] !== undefined) {
+        breakdown[row.status] = row._count._all;
+      }
     });
 
     const executed =

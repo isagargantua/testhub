@@ -8,6 +8,7 @@ import TestRuns from "./pages/TestRuns";
 import RunDetail from "./pages/RunDetail";
 
 import { AuthProvider } from "./context/AuthContext";
+import { ThemeProvider } from "./context/ThemeContext";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -25,6 +26,7 @@ import Users from "./pages/Users";
 export default function App() {
   return (
     <BrowserRouter>
+      <ThemeProvider>
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<Login />} />
@@ -60,6 +62,7 @@ export default function App() {
           </Route>
         </Routes>
       </AuthProvider>
+      </ThemeProvider>
     </BrowserRouter>
   );
 }

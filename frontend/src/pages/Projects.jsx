@@ -224,7 +224,7 @@ export default function Projects() {
           {projects.map((project) => (
             <div
               key={project.id}
-              className="card flex h-full flex-col cursor-pointer transition duration-200 hover:-translate-y-1"
+              className="card card-interactive flex h-full flex-col"
               onClick={() =>
                 navigate(`/projects/${project.id}`)
               }

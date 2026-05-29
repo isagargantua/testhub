@@ -125,7 +125,7 @@ export default function ProjectDetail() {
             {visible.map((suite) => (
               <div
                 key={suite.id}
-                className="card cursor-pointer transition duration-200 hover:-translate-y-1"
+                className="card card-interactive"
                 onClick={() => navigate(`/suites/${suite.id}`)}
               >
                 <div className="flex items-start justify-between gap-3">

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   Cell,
   Pie,
@@ -10,12 +9,13 @@ import {
 import { getDashboardStats } from "../api/dashboard";
 import Badge from "../components/Badge";
 import StatsCard from "../components/StatsCard";
+import { useTheme } from "../context/ThemeContext";
 
 const RESULT_COLORS = {
-  PASS:    { hex: "#22c55e", bg: "rgba(34,197,94,0.12)",    text: "#166534" },
-  FAIL:    { hex: "#ef4444", bg: "rgba(239,68,68,0.12)",    text: "#991b1b" },
-  SKIP:    { hex: "#f59e0b", bg: "rgba(245,158,11,0.12)",   text: "#92400e" },
-  BLOCKED: { hex: "#8b5cf6", bg: "rgba(139,92,246,0.12)",   text: "#4c1d95" },
+  PASS:    { hex: "#22c55e", bg: "rgba(34,197,94,0.12)",    text: "#166534", darkText: "#4ade80" },
+  FAIL:    { hex: "#ef4444", bg: "rgba(239,68,68,0.12)",    text: "#991b1b", darkText: "#f87171" },
+  SKIP:    { hex: "#f59e0b", bg: "rgba(245,158,11,0.12)",   text: "#92400e", darkText: "#fbbf24" },
+  BLOCKED: { hex: "#8b5cf6", bg: "rgba(139,92,246,0.12)",   text: "#4c1d95", darkText: "#a78bfa" },
 };
 
 const REFRESH_INTERVAL_MS = 15000;
@@ -46,7 +46,7 @@ function CustomTooltip({ active, payload }) {
 }
 
 export default function Dashboard() {
-  const navigate = useNavigate();
+  const { isDark } = useTheme();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -195,6 +195,7 @@ export default function Dashboard() {
               <div className="mt-4 grid grid-cols-2 gap-3">
                 {chartData.map((entry) => {
                   const c = RESULT_COLORS[entry.name];
+                  const labelColor = isDark ? c?.darkText : c?.text;
                   const pct = totalResults > 0
                     ? Math.round((entry.value / totalResults) * 100) : 0;
                   return (
@@ -209,19 +210,19 @@ export default function Dashboard() {
                       />
                       <span
                         className="text-xs font-semibold uppercase tracking-[0.16em] flex-1"
-                        style={{ color: c?.text }}
+                        style={{ color: labelColor }}
                       >
                         {entry.name}
                       </span>
                       <span
                         className="text-sm font-bold"
-                        style={{ color: c?.text }}
+                        style={{ color: labelColor }}
                       >
                         {entry.value}
                       </span>
                       <span
                         className="text-xs"
-                        style={{ color: c?.text, opacity: 0.7 }}
+                        style={{ color: labelColor, opacity: 0.7 }}
                       >
                         {pct}%
                       </span>
