@@ -291,7 +291,11 @@ export default function Sidebar() {
 
       {/* User card */}
       {user && (
-        <div className="mt-6 flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-3">
+        <div
+          className={`mt-6 flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-3 ${
+            collapsed ? "lg:justify-center lg:px-2" : ""
+          }`}
+        >
           <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#4f46e5] text-sm font-semibold">
             {initial}
           </div>

@@ -6,7 +6,7 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from "recharts";
-import { getDashboardStats } from "../api/dashboard";
+import { getDashboardStats, getResultsByStatus } from "../api/dashboard";
 import Badge from "../components/Badge";
 import StatsCard from "../components/StatsCard";
 import { useTheme } from "../context/ThemeContext";
@@ -51,8 +51,34 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
-  // When a Result Breakdown status is clicked, filter the latest-run list to it.
+  // Clicking a Result Breakdown status loads every test case marked that status
+  // (across all runs, matching the global chart).
   const [statusFilter, setStatusFilter] = useState(null);
+  const [statusResults, setStatusResults] = useState([]);
+  const [statusLoading, setStatusLoading] = useState(false);
+  const [statusError, setStatusError] = useState("");
+
+  const selectStatus = useCallback(
+    async (name) => {
+      if (statusFilter === name) {
+        setStatusFilter(null);
+        setStatusResults([]);
+        return;
+      }
+      setStatusFilter(name);
+      setStatusLoading(true);
+      setStatusError("");
+      try {
+        setStatusResults(await getResultsByStatus(name));
+      } catch {
+        setStatusError("Could not load test cases for this status.");
+        setStatusResults([]);
+      } finally {
+        setStatusLoading(false);
+      }
+    },
+    [statusFilter]
+  );
 
   const loadStats = useCallback(async ({ silent = false } = {}) => {
     try {
@@ -206,15 +232,13 @@ export default function Dashboard() {
                     <button
                       type="button"
                       key={entry.name}
-                      onClick={() =>
-                        setStatusFilter((s) => (s === entry.name ? null : entry.name))
-                      }
+                      onClick={() => selectStatus(entry.name)}
                       className="flex items-center gap-2.5 rounded-[14px] px-3 py-2.5 text-left transition hover:brightness-95"
                       style={{
                         background: c?.bg,
                         boxShadow: selected ? `0 0 0 2px ${c?.hex}` : "none",
                       }}
-                      title={`Show ${entry.name} test cases from the latest run`}
+                      title={`Show all ${entry.name} test cases`}
                     >
                       <span
                         className="w-2.5 h-2.5 rounded-full flex-shrink-0"
@@ -242,11 +266,9 @@ export default function Dashboard() {
                   );
                 })}
               </div>
-              {safe.latestRunResults?.length > 0 && (
-                <p className="mt-3 text-xs text-[#8a7a69]">
-                  Tip: click a status to see those test cases (from the latest run) below.
-                </p>
-              )}
+              <p className="mt-3 text-xs text-[#8a7a69]">
+                Tip: click a status to see exactly which test cases are marked that, below.
+              </p>
             </>
           )}
         </div>
@@ -286,6 +308,72 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* ── Status filter results (global, set by clicking the breakdown) ── */}
+      {statusFilter && (
+        <div className="card">
+          <div className="mb-4 flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <div className="eyebrow">Result filter</div>
+              <h2 className="display-title mt-2 text-3xl">
+                {statusFilter} test cases
+              </h2>
+              <p className="mt-2 text-sm text-[#75675a]">
+                Every test case marked {statusFilter}, across all runs
+                {statusResults.length > 0 ? ` (${statusResults.length})` : ""}.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => selectStatus(statusFilter)}
+              className="btn-secondary"
+            >
+              Clear
+            </button>
+          </div>
+
+          {statusLoading ? (
+            <div className="card-soft text-sm text-[#75675a]">Loading test cases…</div>
+          ) : statusError ? (
+            <div className="card-soft text-sm text-[#8b4335]">{statusError}</div>
+          ) : statusResults.length === 0 ? (
+            <div className="card-soft text-sm text-[#75675a]">
+              No test cases are marked {statusFilter} yet.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+              {statusResults.map((r) => {
+                const c = RESULT_COLORS[r.status];
+                return (
+                  <div
+                    key={r.id}
+                    className="flex items-center gap-3 rounded-[14px] px-3 py-2.5"
+                    style={{ background: c?.bg ?? "rgba(120,116,108,0.08)" }}
+                  >
+                    <span
+                      className="w-2 h-2 rounded-full flex-shrink-0"
+                      style={{ background: c?.hex ?? "#999" }}
+                    />
+                    <span
+                      className="text-sm text-[#2f2419] flex-1 truncate"
+                      title={r.testCaseTitle}
+                    >
+                      {r.testCaseTitle}
+                    </span>
+                    {r.priority && <Badge>{r.priority}</Badge>}
+                    <span
+                      className="hidden sm:block max-w-[38%] truncate text-xs text-[#8a7a69]"
+                      title={r.runName}
+                    >
+                      {r.runName}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ── Latest Run: per-testcase breakdown ── */}
       {safe.latestRunResults?.length > 0 && (
         <div className="card">
@@ -300,38 +388,8 @@ export default function Dashboard() {
             <Badge>{safe.latestRunStatus}</Badge>
           </div>
 
-          {/* Active filter banner (set by clicking a Result Breakdown status). */}
-          {statusFilter && (
-            <div className="mb-4 flex items-center justify-between gap-3 rounded-[14px] bg-[rgba(80,67,43,0.06)] px-4 py-2.5">
-              <span className="text-sm text-[#6f6255]">
-                Showing <strong>{statusFilter}</strong> test cases —{" "}
-                {safe.latestRunResults.filter((r) => r.status === statusFilter).length}{" "}
-                of {safe.latestRunResults.length}
-              </span>
-              <button
-                type="button"
-                onClick={() => setStatusFilter(null)}
-                className="btn-secondary px-3 py-1 text-xs"
-              >
-                Show all
-              </button>
-            </div>
-          )}
-
-          {(() => {
-            const shown = statusFilter
-              ? safe.latestRunResults.filter((r) => r.status === statusFilter)
-              : safe.latestRunResults;
-            if (statusFilter && shown.length === 0) {
-              return (
-                <div className="card-soft text-sm text-[#75675a]">
-                  No test cases were marked {statusFilter} in the latest run.
-                </div>
-              );
-            }
-            return (
           <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-            {shown.map((result) => {
+            {safe.latestRunResults.map((result) => {
               const c = RESULT_COLORS[result.status];
               return (
                 <div
@@ -354,8 +412,6 @@ export default function Dashboard() {
               );
             })}
           </div>
-            );
-          })()}
         </div>
       )}
     </div>

@@ -570,6 +570,26 @@ const openapiSpec = {
         responses: { 200: { description: "OK" }, 401: errorResponse },
       },
     },
+    "/api/dashboard/results": {
+      get: {
+        tags: ["Dashboard"],
+        summary: "Test cases marked a given status across all runs",
+        security: bearerAuth,
+        parameters: [
+          {
+            name: "status",
+            in: "query",
+            required: true,
+            schema: { type: "string", enum: ["PASS", "FAIL", "SKIP", "BLOCKED"] },
+          },
+        ],
+        responses: {
+          200: { description: "OK" },
+          400: errorResponse,
+          401: errorResponse,
+        },
+      },
+    },
   },
 };
 

@@ -91,4 +91,45 @@ router.get("/stats", async (req, res) => {
   }
 });
 
+// Which test cases are marked a given status, across ALL runs — backs the
+// clickable Result Breakdown on the dashboard (the breakdown is global, so this
+// is global too, matching the chart counts).
+router.get("/results", async (req, res) => {
+  try {
+    const status = String(req.query.status || "").toUpperCase();
+    const valid = ["PASS", "FAIL", "SKIP", "BLOCKED"];
+    if (!valid.includes(status)) {
+      return res.status(400).json({ message: "Invalid status" });
+    }
+
+    const results = await prisma.testResult.findMany({
+      where: { status },
+      orderBy: { executedAt: "desc" },
+      take: 200,
+      include: {
+        testCase: { select: { title: true, priority: true } },
+        run: { select: { name: true } },
+      },
+    });
+
+    res.json(
+      results.map((r) => ({
+        id: r.id,
+        status: r.status,
+        comment: r.comment,
+        executedAt: r.executedAt,
+        testCaseTitle: r.testCase?.title ?? "(deleted test case)",
+        priority: r.testCase?.priority ?? null,
+        runName: r.run?.name ?? "(deleted run)",
+      }))
+    );
+  } catch (error) {
+    console.log(error);
+
+    res.status(500).json({
+      message: "Internal server error",
+    });
+  }
+});
+
 module.exports = router;
