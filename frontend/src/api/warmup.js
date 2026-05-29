@@ -25,6 +25,38 @@ export function warmupServices() {
   });
 }
 
+// Manual, awaitable wake-up — used by the "Wake services" button on the login
+// page. Unlike warmupServices() (fire-and-forget on load), this resolves once
+// all three services have responded (or timed out), so the UI can show a status
+// and automation can explicit-wait on it. It wakes all three THROUGH the gateway
+// (no need for the separate per-service hostnames):
+//   /health           -> gateway
+//   /api/auth/me       -> proxied, wakes auth-service (401 is fine)
+//   /api/projects      -> proxied, wakes core-service (401 is fine)
+// Returns { gatewayAwake: boolean } — gatewayAwake is true if the gateway
+// health check returned a response.
+export async function wakeServices({ timeoutMs = 70000 } = {}) {
+  const endpoints = [
+    `${apiUrl}/health`,
+    `${apiUrl}/api/auth/me`,
+    `${apiUrl}/api/projects`,
+  ];
+
+  const pings = endpoints.map((url) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    return fetch(url, {
+      method: "GET",
+      mode: "cors",
+      cache: "no-store",
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timer));
+  });
+
+  const results = await Promise.allSettled(pings);
+  return { gatewayAwake: results[0].status === "fulfilled" };
+}
+
 // Services sleep after ~15 min idle. If the user leaves the tab open and comes
 // back later, the next click would cold-start a service. Re-warm on tab focus
 // (throttled to once per 10 min) so the services are already waking by the time

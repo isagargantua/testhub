@@ -6,6 +6,7 @@ import {
 } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
+import { wakeServices } from "../api/warmup";
 
 function getErrorMessage(error) {
   const response = error?.response?.data;
@@ -37,6 +38,8 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [waking, setWaking] = useState(false);
+  const [wakeStatus, setWakeStatus] = useState("");
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -51,6 +54,25 @@ export default function Login() {
       setError(getErrorMessage(err));
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  // Manually wake the sleeping free-tier services (gateway + auth + core, all
+  // through the gateway). Useful when login fails because a service is cold.
+  async function handleWake() {
+    setWaking(true);
+    setWakeStatus("Waking services… this can take up to ~60s on the free tier.");
+    try {
+      const { gatewayAwake } = await wakeServices();
+      setWakeStatus(
+        gatewayAwake
+          ? "Services are awake. Try signing in now."
+          : "Wake attempt finished — give it a few seconds, then sign in."
+      );
+    } catch {
+      setWakeStatus("Wake attempt finished — give it a few seconds, then sign in.");
+    } finally {
+      setWaking(false);
     }
   }
 
@@ -114,6 +136,7 @@ export default function Login() {
               <input
                 type="email"
                 className="input"
+                data-testid="login-email"
                 value={email}
                 autoComplete="email"
                 placeholder="you@company.com"
@@ -126,6 +149,7 @@ export default function Login() {
               <input
                 type="password"
                 className="input"
+                data-testid="login-password"
                 value={password}
                 autoComplete="current-password"
                 placeholder="Enter your password"
@@ -133,10 +157,34 @@ export default function Login() {
               />
             </div>
 
-            <button className="btn w-full" disabled={submitting}>
+            <button className="btn w-full" data-testid="login-submit" disabled={submitting}>
               {submitting ? "Logging in..." : "Sign In"}
             </button>
           </form>
+
+          {/* Free-tier services sleep after ~15 min idle. If sign-in fails or
+              hangs, wake all three (via the gateway) then retry. Exposed with
+              data-testid hooks so automation can click + wait deterministically. */}
+          <div className="mt-5">
+            <button
+              type="button"
+              className="btn-secondary w-full"
+              data-testid="wake-services"
+              onClick={handleWake}
+              disabled={waking}
+            >
+              {waking ? "Waking services…" : "Services asleep? Wake them"}
+            </button>
+            {wakeStatus && (
+              <p
+                className="mt-2 text-xs text-[#64748b]"
+                data-testid="wake-status"
+                role="status"
+              >
+                {wakeStatus}
+              </p>
+            )}
+          </div>
 
           <p className="mt-6 text-sm text-[#64748b]">
             New to TestHub?{" "}
