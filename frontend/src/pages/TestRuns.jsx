@@ -210,7 +210,7 @@ export default function TestRuns() {
             {visible.map((run) => (
               <div
                 key={run.id}
-                className="card card-interactive"
+                className="card card-interactive flex h-full flex-col"
                 onClick={() => navigate(`/runs/${run.id}`)}
               >
                 <div className="flex items-start justify-between gap-3">
@@ -229,9 +229,11 @@ export default function TestRuns() {
                   </p>
                 )}
 
-                {/* Status changer — stops card click propagation */}
+                {/* Status changer — stops card click propagation. mt-auto pins
+                    this + the footer to the bottom so the Delete row aligns
+                    across cards regardless of description length. */}
                 <div
-                  className="mt-4 flex items-center gap-2"
+                  className="mt-auto flex items-center gap-2 pt-4"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <span className="text-xs uppercase tracking-[0.18em] text-[#64748b]">
