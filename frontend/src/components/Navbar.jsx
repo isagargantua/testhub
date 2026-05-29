@@ -12,7 +12,7 @@ export default function Navbar() {
       <div className="border-b border-[rgba(80,67,43,0.08)] bg-[rgba(255,251,245,0.52)] px-4 py-4 backdrop-blur-md md:px-6 lg:px-8">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <div className="eyebrow">Control room</div>
+            <div className="eyebrow">QA Workspace</div>
             <div className="mt-2 flex items-center gap-3">
               <h2 className="display-title text-3xl">Welcome back</h2>
               <span className="hidden rounded-full border border-[rgba(80,67,43,0.12)] bg-white/60 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-[#7b6a58] md:inline-flex">

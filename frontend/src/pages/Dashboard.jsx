@@ -51,6 +51,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  // When a Result Breakdown status is clicked, filter the latest-run list to it.
+  const [statusFilter, setStatusFilter] = useState(null);
 
   const loadStats = useCallback(async ({ silent = false } = {}) => {
     try {
@@ -191,18 +193,28 @@ export default function Dashboard() {
                 </PieChart>
               </ResponsiveContainer>
 
-              {/* Legend with counts + percentage */}
+              {/* Legend with counts + percentage — click a status to see its
+                  test cases (from the latest run) in the panel below. */}
               <div className="mt-4 grid grid-cols-2 gap-3">
                 {chartData.map((entry) => {
                   const c = RESULT_COLORS[entry.name];
                   const labelColor = isDark ? c?.darkText : c?.text;
+                  const selected = statusFilter === entry.name;
                   const pct = totalResults > 0
                     ? Math.round((entry.value / totalResults) * 100) : 0;
                   return (
-                    <div
+                    <button
+                      type="button"
                       key={entry.name}
-                      className="flex items-center gap-2.5 rounded-[14px] px-3 py-2.5"
-                      style={{ background: c?.bg }}
+                      onClick={() =>
+                        setStatusFilter((s) => (s === entry.name ? null : entry.name))
+                      }
+                      className="flex items-center gap-2.5 rounded-[14px] px-3 py-2.5 text-left transition hover:brightness-95"
+                      style={{
+                        background: c?.bg,
+                        boxShadow: selected ? `0 0 0 2px ${c?.hex}` : "none",
+                      }}
+                      title={`Show ${entry.name} test cases from the latest run`}
                     >
                       <span
                         className="w-2.5 h-2.5 rounded-full flex-shrink-0"
@@ -226,10 +238,15 @@ export default function Dashboard() {
                       >
                         {pct}%
                       </span>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
+              {safe.latestRunResults?.length > 0 && (
+                <p className="mt-3 text-xs text-[#8a7a69]">
+                  Tip: click a status to see those test cases (from the latest run) below.
+                </p>
+              )}
             </>
           )}
         </div>
@@ -241,8 +258,12 @@ export default function Dashboard() {
               <div className="eyebrow">Activity</div>
               <h2 className="display-title mt-2 text-3xl">Recent Runs</h2>
             </div>
-            <button className="btn-secondary" onClick={() => loadStats({ silent: true })}>
-              Refresh
+            <button
+              className="btn-secondary transition active:scale-95 disabled:opacity-60"
+              onClick={() => loadStats({ silent: true })}
+              disabled={refreshing}
+            >
+              {refreshing ? "Refreshing…" : "Refresh"}
             </button>
           </div>
           <div className="space-y-3">
@@ -279,8 +300,38 @@ export default function Dashboard() {
             <Badge>{safe.latestRunStatus}</Badge>
           </div>
 
+          {/* Active filter banner (set by clicking a Result Breakdown status). */}
+          {statusFilter && (
+            <div className="mb-4 flex items-center justify-between gap-3 rounded-[14px] bg-[rgba(80,67,43,0.06)] px-4 py-2.5">
+              <span className="text-sm text-[#6f6255]">
+                Showing <strong>{statusFilter}</strong> test cases —{" "}
+                {safe.latestRunResults.filter((r) => r.status === statusFilter).length}{" "}
+                of {safe.latestRunResults.length}
+              </span>
+              <button
+                type="button"
+                onClick={() => setStatusFilter(null)}
+                className="btn-secondary px-3 py-1 text-xs"
+              >
+                Show all
+              </button>
+            </div>
+          )}
+
+          {(() => {
+            const shown = statusFilter
+              ? safe.latestRunResults.filter((r) => r.status === statusFilter)
+              : safe.latestRunResults;
+            if (statusFilter && shown.length === 0) {
+              return (
+                <div className="card-soft text-sm text-[#75675a]">
+                  No test cases were marked {statusFilter} in the latest run.
+                </div>
+              );
+            }
+            return (
           <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-            {safe.latestRunResults.map((result) => {
+            {shown.map((result) => {
               const c = RESULT_COLORS[result.status];
               return (
                 <div
@@ -303,6 +354,8 @@ export default function Dashboard() {
               );
             })}
           </div>
+            );
+          })()}
         </div>
       )}
     </div>
