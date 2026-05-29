@@ -25,36 +25,56 @@ export function warmupServices() {
   });
 }
 
-// Manual, awaitable wake-up — used by the "Wake services" button on the login
-// page. Unlike warmupServices() (fire-and-forget on load), this resolves once
-// all three services have responded (or timed out), so the UI can show a status
-// and automation can explicit-wait on it. It wakes all three THROUGH the gateway
-// (no need for the separate per-service hostnames):
-//   /health           -> gateway
-//   /api/auth/me       -> proxied, wakes auth-service (401 is fine)
-//   /api/projects      -> proxied, wakes core-service (401 is fine)
-// Returns { gatewayAwake: boolean } — gatewayAwake is true if the gateway
-// health check returned a response.
-export async function wakeServices({ timeoutMs = 70000 } = {}) {
-  const endpoints = [
-    `${apiUrl}/health`,
-    `${apiUrl}/api/auth/me`,
-    `${apiUrl}/api/projects`,
-  ];
-
-  const pings = endpoints.map((url) => {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    return fetch(url, {
+// Probe one endpoint and decide whether the service behind it is actually AWAKE.
+//
+// Key point: fetch() "succeeds" for ANY HTTP response, including the 5xx that
+// the gateway / Render edge returns while a service is still cold-booting. So
+// "got a response" is NOT the same as "awake". A service is only awake when it
+// returns a non-5xx status:
+//   - /health        -> 200 once the gateway is up
+//   - /api/auth/me    -> 401 once auth-service is up (no token)
+//   - /api/projects   -> 401 once core-service is up (no token)
+// A 5xx, a network error, a CORS rejection, or a timeout all mean "not awake".
+async function probeOne(url, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
       method: "GET",
       mode: "cors",
       cache: "no-store",
       signal: controller.signal,
-    }).finally(() => clearTimeout(timer));
-  });
+    });
+    return res.status < 500; // 200/401/etc = awake; 5xx = still booting
+  } catch {
+    return false; // network error / CORS / aborted timeout = not awake
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
-  const results = await Promise.allSettled(pings);
-  return { gatewayAwake: results[0].status === "fulfilled" };
+// Probe all three services (through the gateway) and report which are awake.
+// Use a SHORT timeout for passive status polls — a cold service simply reports
+// "not awake" instead of hanging.
+export async function probeServices({ timeoutMs = 8000 } = {}) {
+  const [gatewayAwake, authAwake, coreAwake] = await Promise.all([
+    probeOne(`${apiUrl}/health`, timeoutMs),
+    probeOne(`${apiUrl}/api/auth/me`, timeoutMs),
+    probeOne(`${apiUrl}/api/projects`, timeoutMs),
+  ]);
+  return {
+    gatewayAwake,
+    authAwake,
+    coreAwake,
+    allAwake: gatewayAwake && authAwake && coreAwake,
+  };
+}
+
+// Manual, awaitable wake-up — used by the "Wake services" buttons. Uses a long
+// timeout so a cold service has time to actually boot and respond, then reports
+// the real state. Returns the same shape as probeServices().
+export async function wakeServices({ timeoutMs = 70000 } = {}) {
+  return probeServices({ timeoutMs });
 }
 
 // Services sleep after ~15 min idle. If the user leaves the tab open and comes

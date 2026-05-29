@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { wakeServices } from "../api/warmup";
+import { probeServices, wakeServices } from "../api/warmup";
 
 // The interactive Swagger docs are served by the gateway (same host as the
 // API), not the frontend. VITE_API_URL points at the gateway, so /docs hangs
@@ -108,14 +108,12 @@ export default function Sidebar() {
     return () => window.removeEventListener("keydown", onKey);
   }, [toggle]);
 
-  // Lightweight liveness poll of the gateway (best-effort; never throws).
+  // Liveness poll: only "operational" when ALL THREE services genuinely respond
+  // (non-5xx). A short timeout means a cold service reports "asleep" rather than
+  // hanging — and we no longer falsely report awake on a 5xx cold-start page.
   const checkHealth = useCallback(async () => {
-    try {
-      const res = await fetch(`${apiUrl}/health`, { cache: "no-store" });
-      setHealth(res.ok ? "operational" : "sleeping");
-    } catch {
-      setHealth("sleeping");
-    }
+    const { allAwake } = await probeServices({ timeoutMs: 8000 });
+    setHealth(allAwake ? "operational" : "sleeping");
   }, []);
 
   useEffect(() => {
@@ -127,12 +125,8 @@ export default function Sidebar() {
   async function handleWake() {
     setWaking(true);
     setHealth("checking");
-    try {
-      await wakeServices();
-    } catch {
-      // best-effort
-    }
-    await checkHealth();
+    const { allAwake } = await wakeServices();
+    setHealth(allAwake ? "operational" : "sleeping");
     setWaking(false);
   }
 

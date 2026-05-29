@@ -63,14 +63,16 @@ export default function Login() {
     setWaking(true);
     setWakeStatus("Waking services… this can take up to ~60s on the free tier.");
     try {
-      const { gatewayAwake } = await wakeServices();
-      setWakeStatus(
-        gatewayAwake
-          ? "Services are awake. Try signing in now."
-          : "Wake attempt finished — give it a few seconds, then sign in."
-      );
+      const { allAwake, gatewayAwake } = await wakeServices();
+      if (allAwake) {
+        setWakeStatus("All services are awake. Try signing in now.");
+      } else if (gatewayAwake) {
+        setWakeStatus("Gateway is up but a service is still waking — give it ~20–30s, then sign in (or click again).");
+      } else {
+        setWakeStatus("Services are still waking — give it ~20–30s, then click again.");
+      }
     } catch {
-      setWakeStatus("Wake attempt finished — give it a few seconds, then sign in.");
+      setWakeStatus("Services are still waking — give it ~20–30s, then click again.");
     } finally {
       setWaking(false);
     }
