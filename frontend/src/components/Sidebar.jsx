@@ -179,7 +179,7 @@ export default function Sidebar() {
               target="_blank"
               rel="noopener noreferrer"
               title={item.label}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 transition duration-150 text-slate-300 hover:bg-white/[0.06] hover:text-white ${
+              className={`group flex items-center gap-3 rounded-lg px-3 py-2.5 transition duration-150 text-slate-300 hover:bg-white/[0.06] hover:text-white ${
                 collapsed ? "lg:justify-center" : ""
               }`}
             >
@@ -187,11 +187,11 @@ export default function Sidebar() {
               <span className={hideWhenCollapsed}>
                 <span className="flex items-center gap-1.5 text-sm font-semibold">
                   {item.label}
-                  <span aria-hidden className="text-[0.7rem] text-slate-500">
+                  <span aria-hidden className="text-[0.7rem] text-slate-400">
                     &#8599;
                   </span>
                 </span>
-                <span className="block mt-0.5 text-[0.65rem] uppercase tracking-[0.20em] text-slate-500">
+                <span className="block mt-0.5 text-[0.65rem] uppercase tracking-[0.20em] text-slate-400 group-hover:text-slate-200">
                   {item.meta}
                 </span>
               </span>
@@ -203,7 +203,7 @@ export default function Sidebar() {
               end={item.to === "/"}
               title={item.label}
               className={({ isActive }) =>
-                `flex items-center gap-3 rounded-lg px-3 py-2.5 transition duration-150 ${
+                `group flex items-center gap-3 rounded-lg px-3 py-2.5 transition duration-150 ${
                   collapsed ? "lg:justify-center" : ""
                 } ${
                   isActive
@@ -212,13 +212,23 @@ export default function Sidebar() {
                 }`
               }
             >
-              {ICONS[item.icon]}
-              <span className={hideWhenCollapsed}>
-                <span className="block text-sm font-semibold">{item.label}</span>
-                <span className="block mt-0.5 text-[0.65rem] uppercase tracking-[0.20em] text-slate-500">
-                  {item.meta}
-                </span>
-              </span>
+              {({ isActive }) => (
+                <>
+                  {ICONS[item.icon]}
+                  <span className={hideWhenCollapsed}>
+                    <span className="block text-sm font-semibold">{item.label}</span>
+                    <span
+                      className={`block mt-0.5 text-[0.65rem] uppercase tracking-[0.20em] ${
+                        isActive
+                          ? "text-indigo-100"
+                          : "text-slate-400 group-hover:text-slate-200"
+                      }`}
+                    >
+                      {item.meta}
+                    </span>
+                  </span>
+                </>
+              )}
             </NavLink>
           )
         )}
