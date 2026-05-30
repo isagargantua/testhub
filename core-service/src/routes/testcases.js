@@ -9,6 +9,7 @@ const {
 
 const prisma = require("../utils/prisma");
 const { parsePagination, isNotFoundError } = require("../utils/http");
+const { ownedSuite, ownedTestCase } = require("../utils/ownership");
 
 const router = express.Router();
 
@@ -16,6 +17,11 @@ router.use(verifyToken);
 
 router.get("/suite/:suiteId", async (req, res) => {
   try {
+    // Only list cases from a suite the user owns.
+    if (!(await ownedSuite(req.params.suiteId, req.user.id))) {
+      return res.status(404).json({ message: "Suite not found" });
+    }
+
     const { page, limit, skip } = parsePagination(req.query);
 
     const where = {
@@ -71,6 +77,11 @@ router.post(
         });
       }
 
+      // Can only add cases to a suite the user owns.
+      if (!(await ownedSuite(req.params.suiteId, req.user.id))) {
+        return res.status(404).json({ message: "Suite not found" });
+      }
+
       const testCase = await prisma.testCase.create({
         data: {
           title: req.body.title,
@@ -100,6 +111,10 @@ router.put(
   requireRole("ADMIN", "TESTER"),
   async (req, res) => {
     try {
+      if (!(await ownedTestCase(req.params.id, req.user.id))) {
+        return res.status(404).json({ message: "Test case not found" });
+      }
+
       const testCase = await prisma.testCase.update({
         where: {
           id: req.params.id,
@@ -135,6 +150,10 @@ router.delete(
   requireRole("ADMIN", "TESTER"),
   async (req, res) => {
     try {
+      if (!(await ownedTestCase(req.params.id, req.user.id))) {
+        return res.status(404).json({ message: "Test case not found" });
+      }
+
       await prisma.testCase.delete({
         where: {
           id: req.params.id,

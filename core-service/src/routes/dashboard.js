@@ -10,6 +10,16 @@ router.use(verifyToken);
 
 router.get("/stats", async (req, res) => {
   try {
+    const userId = req.user.id;
+
+    // Every metric is scoped to the current user's own projects (and the
+    // suites/cases/runs/results that hang off them), so the dashboard only
+    // ever reflects the signed-in user's data.
+    const projectWhere = { createdById: userId };
+    const caseWhere = { suite: { project: { createdById: userId } } };
+    const runWhere = { project: { createdById: userId } };
+    const resultWhere = { run: { project: { createdById: userId } } };
+
     const [
       totalProjects,
       totalTestCases,
@@ -19,12 +29,13 @@ router.get("/stats", async (req, res) => {
       recentRuns,
       grouped,
     ] = await Promise.all([
-      prisma.project.count(),
-      prisma.testCase.count(),
-      prisma.testRun.count(),
-      prisma.project.count({ where: { status: "ACTIVE" } }),
-      prisma.testRun.count({ where: { status: "IN_PROGRESS" } }),
+      prisma.project.count({ where: projectWhere }),
+      prisma.testCase.count({ where: caseWhere }),
+      prisma.testRun.count({ where: runWhere }),
+      prisma.project.count({ where: { ...projectWhere, status: "ACTIVE" } }),
+      prisma.testRun.count({ where: { ...runWhere, status: "IN_PROGRESS" } }),
       prisma.testRun.findMany({
+        where: runWhere,
         orderBy: { createdAt: "desc" },
         take: 5,
       }),
@@ -32,6 +43,7 @@ router.get("/stats", async (req, res) => {
       // memory — scales with the number of statuses (4), not the row count.
       prisma.testResult.groupBy({
         by: ["status"],
+        where: resultWhere,
         _count: { _all: true },
       }),
     ]);
@@ -103,7 +115,11 @@ router.get("/results", async (req, res) => {
     }
 
     const results = await prisma.testResult.findMany({
-      where: { status },
+      where: {
+        status,
+        // Scope to the current user's runs only.
+        run: { project: { createdById: req.user.id } },
+      },
       orderBy: { executedAt: "desc" },
       take: 200,
       include: {

@@ -9,6 +9,7 @@ const {
 
 const prisma = require("../utils/prisma");
 const { isNotFoundError } = require("../utils/http");
+const { ownedProject, ownedSuite } = require("../utils/ownership");
 
 const router = express.Router();
 
@@ -16,6 +17,11 @@ router.use(verifyToken);
 
 router.get("/project/:projectId", async (req, res) => {
   try {
+    // Only list suites of a project the user owns.
+    if (!(await ownedProject(req.params.projectId, req.user.id))) {
+      return res.status(404).json({ message: "Project not found" });
+    }
+
     const suites = await prisma.testSuite.findMany({
       where: {
         projectId: req.params.projectId,
@@ -49,6 +55,11 @@ router.post(
         });
       }
 
+      // Can only add suites to a project the user owns.
+      if (!(await ownedProject(req.params.projectId, req.user.id))) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
       const suite = await prisma.testSuite.create({
         data: {
           name: req.body.name,
@@ -73,6 +84,10 @@ router.put(
   requireRole("ADMIN", "TESTER"),
   async (req, res) => {
     try {
+      if (!(await ownedSuite(req.params.id, req.user.id))) {
+        return res.status(404).json({ message: "Suite not found" });
+      }
+
       const suite = await prisma.testSuite.update({
         where: {
           id: req.params.id,
@@ -101,6 +116,10 @@ router.delete(
   requireRole("ADMIN", "TESTER"),
   async (req, res) => {
     try {
+      if (!(await ownedSuite(req.params.id, req.user.id))) {
+        return res.status(404).json({ message: "Suite not found" });
+      }
+
       await prisma.testSuite.delete({
         where: {
           id: req.params.id,

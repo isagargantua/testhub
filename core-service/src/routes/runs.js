@@ -6,6 +6,7 @@ const { verifyToken, requireRole } = require("../middleware/auth");
 
 const prisma = require("../utils/prisma");
 const { isNotFoundError } = require("../utils/http");
+const { ownedProject, ownedRun } = require("../utils/ownership");
 
 const router = express.Router();
 
@@ -13,6 +14,11 @@ router.use(verifyToken);
 
 router.get("/project/:projectId", async (req, res) => {
   try {
+    // Only list runs of a project the user owns.
+    if (!(await ownedProject(req.params.projectId, req.user.id))) {
+      return res.status(404).json({ message: "Project not found" });
+    }
+
     const runs = await prisma.testRun.findMany({
       where: {
         projectId: req.params.projectId,
@@ -46,6 +52,11 @@ router.post(
         });
       }
 
+      // Can only create runs in a project the user owns.
+      if (!(await ownedProject(req.params.projectId, req.user.id))) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
       const run = await prisma.testRun.create({
         data: {
           name: req.body.name,
@@ -69,17 +80,17 @@ router.post(
 
 router.get("/:id", async (req, res) => {
   try {
-    const run = await prisma.testRun.findUnique({
-      where: {
-        id: req.params.id,
-      },
-    });
+    const owned = await ownedRun(req.params.id, req.user.id);
 
-    if (!run) {
+    if (!owned) {
       return res.status(404).json({
         message: "Run not found",
       });
     }
+
+    // Drop the joined project (used only for the ownership check) so the
+    // response shape stays exactly as before.
+    const { project, ...run } = owned;
 
     const suites = await prisma.testSuite.findMany({
       where: {
@@ -172,6 +183,11 @@ router.post(
         });
       }
 
+      // Can only submit results to a run the user owns.
+      if (!(await ownedRun(req.params.id, req.user.id))) {
+        return res.status(404).json({ message: "Run not found" });
+      }
+
       const result = await prisma.testResult.upsert({
         where: {
           runId_testCaseId: {
@@ -204,6 +220,10 @@ router.post(
 
 router.put("/:id", requireRole("ADMIN", "TESTER"), async (req, res) => {
   try {
+    if (!(await ownedRun(req.params.id, req.user.id))) {
+      return res.status(404).json({ message: "Run not found" });
+    }
+
     const run = await prisma.testRun.update({
       where: {
         id: req.params.id,
@@ -231,6 +251,10 @@ router.put("/:id", requireRole("ADMIN", "TESTER"), async (req, res) => {
 
 router.delete("/:id", requireRole("ADMIN", "TESTER"), async (req, res) => {
   try {
+    if (!(await ownedRun(req.params.id, req.user.id))) {
+      return res.status(404).json({ message: "Run not found" });
+    }
+
     await prisma.testRun.delete({
       where: {
         id: req.params.id,
@@ -268,9 +292,7 @@ function csvEscape(value) {
 
 router.get("/:id/export", async (req, res) => {
   try {
-    const run = await prisma.testRun.findUnique({
-      where: { id: req.params.id },
-    });
+    const run = await ownedRun(req.params.id, req.user.id);
 
     if (!run) {
       return res.status(404).json({ message: "Run not found" });

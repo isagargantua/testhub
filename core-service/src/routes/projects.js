@@ -9,6 +9,7 @@ const {
 
 const prisma = require("../utils/prisma");
 const { parsePagination, isNotFoundError } = require("../utils/http");
+const { ownedProject } = require("../utils/ownership");
 
 const router = express.Router();
 
@@ -18,8 +19,12 @@ router.get("/", async (req, res) => {
   try {
     const { page, limit, skip } = parsePagination(req.query);
 
+    // Only the current user's own projects.
+    const where = { createdById: req.user.id };
+
     const [items, total] = await Promise.all([
       prisma.project.findMany({
+        where,
         skip,
         take: limit,
         orderBy: {
@@ -27,7 +32,7 @@ router.get("/", async (req, res) => {
         },
       }),
 
-      prisma.project.count(),
+      prisma.project.count({ where }),
     ]);
 
     res.json({
@@ -85,11 +90,7 @@ router.post(
 
 router.get("/:id", async (req, res) => {
   try {
-    const project = await prisma.project.findUnique({
-      where: {
-        id: req.params.id,
-      },
-    });
+    const project = await ownedProject(req.params.id, req.user.id);
 
     if (!project) {
       return res.status(404).json({
@@ -110,6 +111,11 @@ router.put(
   requireRole("ADMIN", "TESTER"),
   async (req, res) => {
     try {
+      // Only the owner may update.
+      if (!(await ownedProject(req.params.id, req.user.id))) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
       const project = await prisma.project.update({
         where: {
           id: req.params.id,
@@ -139,6 +145,11 @@ router.delete(
   requireRole("ADMIN", "TESTER"),
   async (req, res) => {
     try {
+      // Only the owner may delete.
+      if (!(await ownedProject(req.params.id, req.user.id))) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
       await prisma.project.delete({
         where: {
           id: req.params.id,
