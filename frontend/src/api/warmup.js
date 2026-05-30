@@ -1,40 +1,42 @@
-const apiUrl = (
+const gatewayUrl = (
   import.meta.env.VITE_API_URL || "http://localhost:3000"
 ).replace(/\/$/, "");
 
-// On free-tier hosting each service sleeps independently and takes ~24s to
-// wake. If we let them wake one-by-one as the user navigates (gateway on load,
-// auth on login, core on dashboard) the delays stack up. Instead, fire a
-// best-effort ping at every service the moment the app loads so they all cold
-// start in parallel and are warm by the time the user actually needs them.
-//
-// These are fire-and-forget: the auth/core pings return 401 without a token,
-// and CORS may block reading the response — neither matters. The request still
-// reaches the service and wakes it, which is the only goal here.
-export function warmupServices() {
-  const endpoints = [
-    `${apiUrl}/health`, // gateway
-    `${apiUrl}/api/auth/me`, // proxied -> wakes auth-service
-    `${apiUrl}/api/projects`, // proxied -> wakes core-service
-  ];
+// Each backend service has its OWN /health endpoint. We hit each service
+// DIRECTLY (not through the gateway) so a cold container is woken on its own
+// host — proxying through the gateway gives unreliable status when an upstream
+// is still booting. The auth/core URLs derive from the gateway URL by service
+// name; override with VITE_AUTH_URL / VITE_CORE_URL if your naming differs.
+const authUrl = (
+  import.meta.env.VITE_AUTH_URL || gatewayUrl.replace("gateway", "auth-service")
+).replace(/\/$/, "");
+const coreUrl = (
+  import.meta.env.VITE_CORE_URL || gatewayUrl.replace("gateway", "core-service")
+).replace(/\/$/, "");
 
-  endpoints.forEach((url) => {
+const HEALTH = {
+  gateway: `${gatewayUrl}/health`,
+  auth: `${authUrl}/health`,
+  core: `${coreUrl}/health`,
+};
+
+// Fire-and-forget wake on app load: ping all three /health endpoints directly
+// so every container starts spinning up in parallel.
+export function warmupServices() {
+  Object.values(HEALTH).forEach((url) => {
     fetch(url, { method: "GET", mode: "cors", cache: "no-store" }).catch(() => {
       // Expected while a service is still waking; ignore.
     });
   });
 }
 
-// Probe one endpoint and decide whether the service behind it is actually AWAKE.
+// Hit one service's /health and report whether it is genuinely AWAKE.
 //
-// Key point: fetch() "succeeds" for ANY HTTP response, including the 5xx that
-// the gateway / Render edge returns while a service is still cold-booting. So
-// "got a response" is NOT the same as "awake". A service is only awake when it
-// returns a non-5xx status:
-//   - /health        -> 200 once the gateway is up
-//   - /api/auth/me    -> 401 once auth-service is up (no token)
-//   - /api/projects   -> 401 once core-service is up (no token)
-// A 5xx, a network error, a CORS rejection, or a timeout all mean "not awake".
+// A service is awake ONLY when its /health returns 2xx. While a free-tier
+// container is cold-booting, Render holds the request and serves 200 once it's
+// up (which can take ~30-60s) — so awaiting this with a long timeout both wakes
+// the container AND tells the truth. A 5xx, network error, CORS failure, or a
+// timeout (still booting) all count as NOT awake. No false "awake" is possible.
 async function probeOne(url, timeoutMs) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -45,7 +47,7 @@ async function probeOne(url, timeoutMs) {
       cache: "no-store",
       signal: controller.signal,
     });
-    return res.status < 500; // 200/401/etc = awake; 5xx = still booting
+    return res.ok; // strictly 2xx
   } catch {
     return false; // network error / CORS / aborted timeout = not awake
   } finally {
@@ -53,14 +55,13 @@ async function probeOne(url, timeoutMs) {
   }
 }
 
-// Probe all three services (through the gateway) and report which are awake.
-// Use a SHORT timeout for passive status polls — a cold service simply reports
-// "not awake" instead of hanging.
+// Probe all three services directly and report which are awake. SHORT timeout
+// for passive status polls — a cold service reports "asleep" instead of hanging.
 export async function probeServices({ timeoutMs = 8000 } = {}) {
   const [gatewayAwake, authAwake, coreAwake] = await Promise.all([
-    probeOne(`${apiUrl}/health`, timeoutMs),
-    probeOne(`${apiUrl}/api/auth/me`, timeoutMs),
-    probeOne(`${apiUrl}/api/projects`, timeoutMs),
+    probeOne(HEALTH.gateway, timeoutMs),
+    probeOne(HEALTH.auth, timeoutMs),
+    probeOne(HEALTH.core, timeoutMs),
   ]);
   return {
     gatewayAwake,
@@ -70,10 +71,10 @@ export async function probeServices({ timeoutMs = 8000 } = {}) {
   };
 }
 
-// Manual, awaitable wake-up — used by the "Wake services" buttons. Uses a long
-// timeout so a cold service has time to actually boot and respond, then reports
-// the real state. Returns the same shape as probeServices().
-export async function wakeServices({ timeoutMs = 70000 } = {}) {
+// Manual, awaitable wake-up — used by the "Wake services" buttons. Long timeout
+// so a cold container has time to actually boot and answer its /health, then
+// reports the real per-service state. Returns the same shape as probeServices().
+export async function wakeServices({ timeoutMs = 80000 } = {}) {
   return probeServices({ timeoutMs });
 }
 

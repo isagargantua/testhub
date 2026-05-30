@@ -57,22 +57,36 @@ export default function Login() {
     }
   }
 
-  // Manually wake the sleeping free-tier services (gateway + auth + core, all
-  // through the gateway). Useful when login fails because a service is cold.
+  // Manually wake the sleeping free-tier services. This pings each service's
+  // own /health (gateway, auth, core) directly and WAITS for the cold container
+  // to actually answer, so the status it shows is real — never a fake "awake".
   async function handleWake() {
     setWaking(true);
-    setWakeStatus("Waking services… this can take up to ~60s on the free tier.");
+    setWakeStatus(
+      "Waking gateway, auth and core services… this can take up to ~90 seconds on the free tier. Please keep this page open."
+    );
     try {
-      const { allAwake, gatewayAwake } = await wakeServices();
+      const { allAwake, gatewayAwake, authAwake, coreAwake } =
+        await wakeServices();
+
       if (allAwake) {
-        setWakeStatus("All services are awake. Try signing in now.");
-      } else if (gatewayAwake) {
-        setWakeStatus("Gateway is up but a service is still waking — give it ~20–30s, then sign in (or click again).");
+        setWakeStatus("✅ All services are awake. You can sign in now.");
       } else {
-        setWakeStatus("Services are still waking — give it ~20–30s, then click again.");
+        const stillDown = [
+          !gatewayAwake && "gateway",
+          !authAwake && "auth",
+          !coreAwake && "core",
+        ]
+          .filter(Boolean)
+          .join(", ");
+        setWakeStatus(
+          `Still starting: ${stillDown}. Please wait ~20–30 seconds, then click "Wake them" again.`
+        );
       }
     } catch {
-      setWakeStatus("Services are still waking — give it ~20–30s, then click again.");
+      setWakeStatus(
+        'Could not confirm services are up. Please wait ~30 seconds and click "Wake them" again.'
+      );
     } finally {
       setWaking(false);
     }

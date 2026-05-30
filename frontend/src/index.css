@@ -202,7 +202,10 @@ body::after {
 
 .auth-form-card {
   display: flex;
-  align-items: center;
+  /* Align to the top so the card's top edge lines up with the hero panel's
+     top edge (both share the same row); avoids the "borders don't match" look
+     that vertical centering caused. */
+  align-items: flex-start;
   justify-content: center;
 }
 

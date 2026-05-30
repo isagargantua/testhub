@@ -119,6 +119,12 @@ export default function Register() {
 
       <section className="auth-form-card">
         <div className="card">
+          <Link
+            to="/login"
+            className="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-[#4f46e5] hover:underline"
+          >
+            <span aria-hidden>←</span> Back to sign in
+          </Link>
           <div className="eyebrow">Create account</div>
           <h2 className="display-title mt-3 text-4xl">Start for free</h2>
           <p className="mt-3 text-sm leading-6 text-[#64748b]">
