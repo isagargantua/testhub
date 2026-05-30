@@ -202,10 +202,10 @@ body::after {
 
 .auth-form-card {
   display: flex;
-  /* Align to the top so the card's top edge lines up with the hero panel's
-     top edge (both share the same row); avoids the "borders don't match" look
-     that vertical centering caused. */
-  align-items: flex-start;
+  /* Stretch the card to the full column height so it matches the hero panel's
+     height — top AND bottom borders line up, regardless of how many form
+     fields the page has (login is short, register is tall). */
+  align-items: stretch;
   justify-content: center;
 }
 
@@ -213,6 +213,11 @@ body::after {
   width: 100%;
   max-width: 30rem;
   padding: 2rem;
+  /* Center the form content vertically within the (now full-height) card so a
+     short form (login) sits balanced instead of clinging to the top. */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .section-kicker {
