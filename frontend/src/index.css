@@ -291,6 +291,33 @@ body::after {
   }
 }
 
+/* On phones (< 640px) hide the auth hero entirely — just show the form
+   full-screen so users aren't forced to scroll past a tall marketing panel
+   before they can sign in or register. */
+@media (max-width: 639px) {
+  .auth-shell {
+    grid-template-columns: 1fr;
+    padding: 0;
+    gap: 0;
+    min-height: 100svh;
+  }
+
+  .auth-hero {
+    display: none;
+  }
+
+  .auth-form-card {
+    align-items: flex-start;
+  }
+
+  .auth-form-card .card {
+    border-radius: 0;
+    min-height: 100svh;
+    justify-content: flex-start;
+    padding-top: 3rem;
+  }
+}
+
 /* ===========================================================================
    Interactive cards (Projects / Test Suites / Test Runs)
    A premium hover state so a clickable card clearly reads as "selectable":
