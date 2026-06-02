@@ -45,12 +45,44 @@ function CustomTooltip({ active, payload }) {
   );
 }
 
+const WORKFLOW_STEPS = [
+  { n: "1", label: "Create a Project",    desc: "Go to Projects → New Project." },
+  { n: "2", label: "Add a Test Suite",    desc: "Open the project → Create Test Suite." },
+  { n: "3", label: "Add Test Cases",      desc: "Inside the suite, add your test cases." },
+  { n: "4", label: "Create a Test Run",   desc: "Go to Runs → Create Run → pick a suite and choose test cases." },
+  { n: "5", label: "Mark Results",        desc: "Open the run and mark each test case PASS / FAIL / SKIP / BLOCKED." },
+  { n: "✓", label: "See it here",         desc: "Results appear in the Result Breakdown and Recent Runs above." },
+];
+
+function WorkflowSteps() {
+  return (
+    <div className="space-y-2.5">
+      <p className="text-[0.65rem] font-semibold uppercase tracking-[0.24em] text-[#8a7a69]">
+        How results reach this dashboard
+      </p>
+      {WORKFLOW_STEPS.map(({ n, label, desc }) => (
+        <div key={n} className="flex items-start gap-3">
+          <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[rgba(79,70,229,0.12)] text-[0.6rem] font-bold text-indigo-500">
+            {n}
+          </span>
+          <div>
+            <span className="text-xs font-semibold text-[#2f2419]">{label}</span>
+            <span className="ml-1.5 text-xs text-[#8a7a69]">{desc}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { isDark } = useTheme();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const [showWorkflowGuide, setShowWorkflowGuide] = useState(false);
+
   // Clicking a Result Breakdown status loads every test case marked that status
   // (across all runs, matching the global chart).
   const [statusFilter, setStatusFilter] = useState(null);
@@ -191,8 +223,9 @@ export default function Dashboard() {
           </div>
 
           {totalResults === 0 ? (
-            <div className="flex flex-1 items-center justify-center py-12 text-sm text-[#8a7a69]">
-              No results recorded yet. Start a run and mark test cases.
+            <div className="flex flex-1 flex-col gap-5 py-4">
+              <p className="text-sm text-[#8a7a69]">No results recorded yet — follow the steps below to get started.</p>
+              <WorkflowSteps />
             </div>
           ) : (
             <>
@@ -269,6 +302,19 @@ export default function Dashboard() {
               <p className="mt-3 text-xs text-[#8a7a69]">
                 Tip: click a status to see exactly which test cases are marked that, below.
               </p>
+              <button
+                type="button"
+                onClick={() => setShowWorkflowGuide((v) => !v)}
+                className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-[#4f46e5] hover:underline"
+              >
+                How are results recorded here?
+                <span>{showWorkflowGuide ? "↑" : "↓"}</span>
+              </button>
+              {showWorkflowGuide && (
+                <div className="mt-3">
+                  <WorkflowSteps />
+                </div>
+              )}
             </>
           )}
         </div>
