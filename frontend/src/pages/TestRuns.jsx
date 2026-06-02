@@ -353,7 +353,7 @@ export default function TestRuns() {
                         {tcs.map((tc) => (
                           <label
                             key={tc.id}
-                            className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-slate-100 cursor-pointer transition"
+                            className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-[rgba(79,70,229,0.10)] cursor-pointer transition"
                           >
                             <input
                               type="checkbox"
