@@ -16,12 +16,15 @@ const router = express.Router();
 router.use(verifyToken);
 
 // Global view — all test cases the user owns, enriched with project/suite/run context.
+// Uses a two-step approach (projects → suiteIds → testcases) to keep Prisma
+// queries flat and avoid nested-relation filter edge-cases on Render Postgres.
 router.get("/all", async (req, res) => {
   try {
     const { page, limit, skip } = parsePagination(req.query);
     const search    = req.query.search?.trim()    || "";
     const projectId = req.query.projectId?.trim() || "";
 
+    // Step 1 — resolve owned project IDs
     const projects = await prisma.project.findMany({
       where: { createdById: req.user.id },
       select: { id: true, name: true },
@@ -32,24 +35,43 @@ router.get("/all", async (req, res) => {
       return res.json({ items: [], pagination: { page, limit, total: 0, pages: 0 } });
     }
 
-    const where = {
-      suite: {
-        projectId: {
-          in: projectId ? [projectId] : projectIds,
-        },
+    const scopedProjectIds = projectId ? [projectId] : projectIds;
+
+    // Step 2 — resolve suites within those projects
+    const suites = await prisma.testSuite.findMany({
+      where: { projectId: { in: scopedProjectIds } },
+      select: {
+        id: true,
+        name: true,
+        project: { select: { id: true, name: true } },
       },
-      ...(search && { title: { contains: search, mode: "insensitive" } }),
+    });
+
+    const suiteIds = suites.map((s) => s.id);
+    if (suiteIds.length === 0) {
+      return res.json({ items: [], pagination: { page, limit, total: 0, pages: 0 } });
+    }
+
+    const suiteMap = Object.fromEntries(suites.map((s) => [s.id, s]));
+
+    // Step 3 — query test cases by flat suiteId list
+    const where = {
+      suiteId: { in: suiteIds },
+      ...(search ? { title: { contains: search, mode: "insensitive" } } : {}),
     };
 
     const [raw, total] = await Promise.all([
       prisma.testCase.findMany({
         where,
-        include: {
-          suite: {
-            include: { project: { select: { id: true, name: true } } },
-          },
+        select: {
+          id: true, title: true, description: true,
+          priority: true, tags: true, createdAt: true,
+          suiteId: true,
           results: {
-            include: { run: { select: { id: true, name: true, status: true } } },
+            select: {
+              runId: true, status: true, executedAt: true,
+              run: { select: { id: true, name: true, status: true } },
+            },
             orderBy: { executedAt: "desc" },
           },
         },
@@ -60,26 +82,29 @@ router.get("/all", async (req, res) => {
       prisma.testCase.count({ where }),
     ]);
 
-    const items = raw.map((tc) => ({
-      id:          tc.id,
-      title:       tc.title,
-      description: tc.description,
-      priority:    tc.priority,
-      tags:        tc.tags,
-      createdAt:   tc.createdAt,
-      project:     tc.suite.project,
-      suite:       { id: tc.suite.id, name: tc.suite.name },
-      runs: tc.results.map((r) => ({
-        runId:        r.runId,
-        runName:      r.run.name,
-        runStatus:    r.run.status,
-        resultStatus: r.status,
-        executedAt:   r.executedAt,
-      })),
-      latestResult: tc.results[0]
-        ? { status: tc.results[0].status, runName: tc.results[0].run.name }
-        : null,
-    }));
+    const items = raw.map((tc) => {
+      const suite = suiteMap[tc.suiteId];
+      return {
+        id:          tc.id,
+        title:       tc.title,
+        description: tc.description,
+        priority:    tc.priority,
+        tags:        tc.tags,
+        createdAt:   tc.createdAt,
+        project:     suite.project,
+        suite:       { id: suite.id, name: suite.name },
+        runs: tc.results.map((r) => ({
+          runId:        r.runId,
+          runName:      r.run.name,
+          runStatus:    r.run.status,
+          resultStatus: r.status,
+          executedAt:   r.executedAt,
+        })),
+        latestResult: tc.results[0]
+          ? { status: tc.results[0].status, runName: tc.results[0].run.name }
+          : null,
+      };
+    });
 
     res.json({ items, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
   } catch (error) {

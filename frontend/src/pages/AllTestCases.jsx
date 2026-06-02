@@ -98,10 +98,10 @@ export default function AllTestCases() {
           </p>
         </div>
         {!loading && (
-          <div className="card-soft min-w-[140px] text-center">
-            <div className="eyebrow">Total</div>
+          <div className="card-soft min-w-[160px] text-center">
+            <div className="eyebrow">Unique Test Cases</div>
             <div className="mt-2 display-title text-3xl">{pagination.total}</div>
-            <p className="mt-1 text-xs text-[#8a7a69]">test cases</p>
+            <p className="mt-1 text-xs text-[#8a7a69]">across all projects</p>
           </div>
         )}
       </div>
