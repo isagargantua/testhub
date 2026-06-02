@@ -82,6 +82,7 @@ export default function Dashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [showWorkflowGuide, setShowWorkflowGuide] = useState(false);
+  const [latestRunOpen, setLatestRunOpen] = useState(true);
 
   // Clicking a Result Breakdown status loads every test case marked that status
   // (across all runs, matching the global chart).
@@ -462,41 +463,56 @@ export default function Dashboard() {
       {/* ── Latest Run: per-testcase breakdown ── */}
       {safe.latestRunResults?.length > 0 && (
         <div className="card">
-          <div className="mb-4 flex items-end justify-between gap-4 flex-wrap">
+          <div className="flex items-end justify-between gap-4 flex-wrap">
             <div>
               <div className="eyebrow">Latest run</div>
               <h2 className="display-title mt-2 text-3xl">{safe.latestRunName}</h2>
-              <p className="mt-2 text-sm text-[#75675a]">
-                Per-testcase results — which cases are marked what.
-              </p>
+              {latestRunOpen && (
+                <p className="mt-2 text-sm text-[#75675a]">
+                  Per-testcase results — which cases are marked what.
+                </p>
+              )}
             </div>
-            <Badge>{safe.latestRunStatus}</Badge>
+            <div className="flex items-center gap-2">
+              <Badge>{safe.latestRunStatus}</Badge>
+              <button
+                type="button"
+                onClick={() => setLatestRunOpen((v) => !v)}
+                className="btn-secondary px-3 py-2 text-sm"
+                aria-label={latestRunOpen ? "Collapse latest run" : "Expand latest run"}
+                title={latestRunOpen ? "Hide" : "Show"}
+              >
+                {latestRunOpen ? "↑" : "↓"}
+              </button>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-            {safe.latestRunResults.map((result) => {
-              const c = RESULT_COLORS[result.status];
-              return (
-                <div
-                  key={result.id}
-                  className="flex items-center gap-3 rounded-[14px] px-3 py-2.5"
-                  style={{ background: c?.bg ?? "rgba(120,116,108,0.08)" }}
-                >
-                  <span
-                    className="w-2 h-2 rounded-full flex-shrink-0"
-                    style={{ background: c?.hex ?? "#999" }}
-                  />
-                  <span className="text-sm text-[#2f2419] flex-1 truncate">
-                    {result.testCase?.title}
-                  </span>
-                  {result.testCase?.priority && (
-                    <Badge>{result.testCase.priority}</Badge>
-                  )}
-                  <Badge>{result.status}</Badge>
-                </div>
-              );
-            })}
-          </div>
+          {latestRunOpen && (
+            <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2">
+              {safe.latestRunResults.map((result) => {
+                const c = RESULT_COLORS[result.status];
+                return (
+                  <div
+                    key={result.id}
+                    className="flex items-center gap-3 rounded-[14px] px-3 py-2.5"
+                    style={{ background: c?.bg ?? "rgba(120,116,108,0.08)" }}
+                  >
+                    <span
+                      className="w-2 h-2 rounded-full flex-shrink-0"
+                      style={{ background: c?.hex ?? "#999" }}
+                    />
+                    <span className="text-sm text-[#2f2419] flex-1 truncate">
+                      {result.testCase?.title}
+                    </span>
+                    {result.testCase?.priority && (
+                      <Badge>{result.testCase.priority}</Badge>
+                    )}
+                    <Badge>{result.status}</Badge>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>
