@@ -89,15 +89,19 @@ export default function Dashboard() {
   const [statusResults, setStatusResults] = useState([]);
   const [statusLoading, setStatusLoading] = useState(false);
   const [statusError, setStatusError] = useState("");
+  const [statusPage, setStatusPage] = useState(1);
+  const STATUS_PER_PAGE = 10;
 
   const selectStatus = useCallback(
     async (name) => {
       if (statusFilter === name) {
         setStatusFilter(null);
         setStatusResults([]);
+        setStatusPage(1);
         return;
       }
       setStatusFilter(name);
+      setStatusPage(1);
       setStatusLoading(true);
       setStatusError("");
       try {
@@ -385,38 +389,73 @@ export default function Dashboard() {
             <div className="card-soft text-sm text-[#75675a]">
               No test cases are marked {statusFilter} yet.
             </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-              {statusResults.map((r) => {
-                const c = RESULT_COLORS[r.status];
-                return (
-                  <div
-                    key={r.id}
-                    className="flex items-center gap-3 rounded-[14px] px-3 py-2.5"
-                    style={{ background: c?.bg ?? "rgba(120,116,108,0.08)" }}
-                  >
-                    <span
-                      className="w-2 h-2 rounded-full flex-shrink-0"
-                      style={{ background: c?.hex ?? "#999" }}
-                    />
-                    <span
-                      className="text-sm text-[#2f2419] flex-1 truncate"
-                      title={r.testCaseTitle}
-                    >
-                      {r.testCaseTitle}
-                    </span>
-                    {r.priority && <Badge>{r.priority}</Badge>}
-                    <span
-                      className="hidden sm:block max-w-[38%] truncate text-xs text-[#8a7a69]"
-                      title={r.runName}
-                    >
-                      {r.runName}
-                    </span>
+          ) : (() => {
+            const totalPages = Math.ceil(statusResults.length / STATUS_PER_PAGE);
+            const pageItems  = statusResults.slice(
+              (statusPage - 1) * STATUS_PER_PAGE,
+              statusPage * STATUS_PER_PAGE,
+            );
+            return (
+              <>
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                  {pageItems.map((r) => {
+                    const c = RESULT_COLORS[r.status];
+                    return (
+                      <div
+                        key={r.id}
+                        className="flex items-center gap-3 rounded-[14px] px-3 py-2.5"
+                        style={{ background: c?.bg ?? "rgba(120,116,108,0.08)" }}
+                      >
+                        <span
+                          className="w-2 h-2 rounded-full flex-shrink-0"
+                          style={{ background: c?.hex ?? "#999" }}
+                        />
+                        <span
+                          className="text-sm text-[#2f2419] flex-1 truncate"
+                          title={r.testCaseTitle}
+                        >
+                          {r.testCaseTitle}
+                        </span>
+                        {r.priority && <Badge>{r.priority}</Badge>}
+                        <span
+                          className="hidden sm:block max-w-[38%] truncate text-xs text-[#8a7a69]"
+                          title={r.runName}
+                        >
+                          {r.runName}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {totalPages > 1 && (
+                  <div className="mt-4 flex items-center justify-between gap-3">
+                    <p className="text-xs text-[#8a7a69]">
+                      Page {statusPage} of {totalPages} · {statusResults.length} results
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        className="btn-secondary px-3 py-1.5 text-xs disabled:opacity-40"
+                        onClick={() => setStatusPage((p) => Math.max(1, p - 1))}
+                        disabled={statusPage === 1}
+                      >
+                        ← Prev
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-secondary px-3 py-1.5 text-xs disabled:opacity-40"
+                        onClick={() => setStatusPage((p) => Math.min(totalPages, p + 1))}
+                        disabled={statusPage === totalPages}
+                      >
+                        Next →
+                      </button>
+                    </div>
                   </div>
-                );
-              })}
-            </div>
-          )}
+                )}
+              </>
+            );
+          })()}
         </div>
       )}
 

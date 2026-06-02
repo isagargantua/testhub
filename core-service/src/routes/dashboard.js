@@ -27,7 +27,7 @@ router.get("/stats", async (req, res) => {
       activeProjects,
       activeRuns,
       recentRuns,
-      grouped,
+      allResults,
     ] = await Promise.all([
       prisma.project.count({ where: projectWhere }),
       prisma.testCase.count({ where: caseWhere }),
@@ -39,22 +39,26 @@ router.get("/stats", async (req, res) => {
         orderBy: { createdAt: "desc" },
         take: 5,
       }),
-      // Count results per status in the DB instead of pulling every row into
-      // memory — scales with the number of statuses (4), not the row count.
-      prisma.testResult.groupBy({
-        by: ["status"],
+      // Fetch all results ordered newest-first so we can deduplicate to one
+      // result per unique test case (its latest run result).
+      prisma.testResult.findMany({
         where: resultWhere,
-        _count: { _all: true },
+        orderBy: { executedAt: "desc" },
+        select: { testCaseId: true, status: true },
       }),
     ]);
 
+    // Keep only the latest result per test case, then count by status.
+    // This means a TC that appears in 3 runs counts once (its most recent result),
+    // so the breakdown total matches the number of unique executed test cases.
     const breakdown = { PASS: 0, FAIL: 0, SKIP: 0, BLOCKED: 0 };
-
-    grouped.forEach((row) => {
-      if (breakdown[row.status] !== undefined) {
-        breakdown[row.status] = row._count._all;
+    const seenTCIds = new Set();
+    for (const r of allResults) {
+      if (!seenTCIds.has(r.testCaseId)) {
+        seenTCIds.add(r.testCaseId);
+        if (r.status in breakdown) breakdown[r.status]++;
       }
-    });
+    }
 
     const executed =
       breakdown.PASS + breakdown.FAIL + breakdown.SKIP + breakdown.BLOCKED;
