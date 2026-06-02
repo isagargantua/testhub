@@ -105,6 +105,27 @@ export default function Login() {
           </p>
         </div>
 
+        {/* Workflow steps — fills the vertical gap between the hero copy and the metric chips */}
+        <div className="space-y-3 py-2">
+          <p className="text-[0.65rem] font-semibold uppercase tracking-[0.28em] text-[rgba(248,243,237,0.45)]">
+            How it works
+          </p>
+          {[
+            { step: "01", title: "Define Projects", desc: "Group test suites by product area, version, or sprint cycle." },
+            { step: "02", title: "Write Test Cases", desc: "Add structured cases with steps, expected results, and priority tags." },
+            { step: "03", title: "Execute & Track", desc: "Log PASS / FAIL / SKIP / BLOCKED outcomes in real time." },
+            { step: "04", title: "Analyze Results", desc: "Review pass rates, failure trends, and team performance on the dashboard." },
+          ].map(({ step, title, desc }) => (
+            <div key={step} className="flex items-start gap-4">
+              <span className="shrink-0 mt-0.5 w-7 text-[0.65rem] font-bold text-indigo-400">{step}</span>
+              <div>
+                <div className="text-sm font-semibold text-[#f0ebe3]">{title}</div>
+                <p className="mt-0.5 text-xs leading-relaxed text-[#b8ad9e]">{desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
         <div className="space-y-5">
           <div className="metric-grid">
             <div className="metric-chip">
