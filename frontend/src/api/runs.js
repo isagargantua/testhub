@@ -29,3 +29,11 @@ export async function deleteRun(id) {
   const response = await client.delete(`/api/runs/${id}`);
   return response.data;
 }
+
+export async function addTestCasesToRun(runId, testCaseIds) {
+  await Promise.all(
+    testCaseIds.map((testCaseId) =>
+      client.post(`/api/runs/${runId}/results`, { testCaseId, status: "PENDING" })
+    )
+  );
+}
