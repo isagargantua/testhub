@@ -125,15 +125,23 @@ router.get("/results", async (req, res) => {
         run: { project: { createdById: req.user.id } },
       },
       orderBy: { executedAt: "desc" },
-      take: 200,
       include: {
         testCase: { select: { title: true, priority: true } },
         run: { select: { name: true } },
       },
     });
 
+    // Deduplicate: keep only the latest result per unique test case.
+    // Results are already newest-first so the first occurrence is the latest.
+    const seen = new Set();
+    const deduped = results.filter((r) => {
+      if (seen.has(r.testCaseId)) return false;
+      seen.add(r.testCaseId);
+      return true;
+    });
+
     res.json(
-      results.map((r) => ({
+      deduped.map((r) => ({
         id: r.id,
         status: r.status,
         comment: r.comment,
