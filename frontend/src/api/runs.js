@@ -30,10 +30,9 @@ export async function deleteRun(id) {
   return response.data;
 }
 
-export async function addTestCasesToRun(runId, testCaseIds) {
-  await Promise.all(
-    testCaseIds.map((testCaseId) =>
-      client.post(`/api/runs/${runId}/results`, { testCaseId, status: "PENDING" })
-    )
-  );
+export async function addTestCasesToRun(runId, mergedSelectedCaseIds) {
+  const response = await client.put(`/api/runs/${runId}`, {
+    selectedCaseIds: mergedSelectedCaseIds,
+  });
+  return response.data;
 }

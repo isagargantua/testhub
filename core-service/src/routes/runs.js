@@ -232,6 +232,9 @@ router.put("/:id", requireRole("ADMIN", "TESTER"), async (req, res) => {
         name: req.body.name,
         description: req.body.description,
         status: req.body.status,
+        ...(req.body.selectedCaseIds !== undefined && {
+          selectedCaseIds: req.body.selectedCaseIds,
+        }),
       },
     });
 

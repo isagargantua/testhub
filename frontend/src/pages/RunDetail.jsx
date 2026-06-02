@@ -114,7 +114,10 @@ export default function RunDetail() {
     try {
       setAdding(true);
       setAddError("");
-      await addTestCasesToRun(runId, selectedNewIds);
+      // Merge new IDs into selectedCaseIds so the GET handler includes them
+      const existing = run.selectedCaseIds || [];
+      const merged   = [...new Set([...existing, ...selectedNewIds])];
+      await addTestCasesToRun(runId, merged);
       setAddOpen(false);
       loadRun();
     } catch {
