@@ -22,6 +22,7 @@ import Dashboard from "./pages/Dashboard";
 
 import Projects from "./pages/Projects";
 import Users from "./pages/Users";
+import AllTestCases from "./pages/AllTestCases";
 
 export default function App() {
   return (
@@ -59,6 +60,7 @@ export default function App() {
             <Route path="suites/:suiteId" element={<SuiteDetail />} />
             <Route path="projects/:projectId/runs" element={<TestRuns />} />
             <Route path="runs/:runId" element={<RunDetail />} />
+            <Route path="test-cases" element={<AllTestCases />} />
           </Route>
         </Routes>
       </AuthProvider>

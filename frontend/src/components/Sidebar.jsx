@@ -53,6 +53,14 @@ const ICONS = {
       <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
     </>
   ),
+  testcases: icon(
+    <>
+      <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
+      <path d="M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2 2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2z" />
+      <line x1="9" y1="12" x2="15" y2="12" />
+      <line x1="9" y1="16" x2="12" y2="16" />
+    </>
+  ),
   collapse: icon(
     <>
       <path d="M11 17l-5-5 5-5" />
@@ -129,8 +137,9 @@ export default function Sidebar({ mobileOpen, onMobileClose }) {
   }
 
   const navigation = [
-    { to: "/",         label: "Dashboard", meta: "overview",    icon: "dashboard" },
-    { to: "/projects", label: "Projects",  meta: "workspaces",  icon: "projects"  },
+    { to: "/",            label: "Dashboard",  meta: "overview",   icon: "dashboard"  },
+    { to: "/projects",    label: "Projects",   meta: "workspaces", icon: "projects"   },
+    { to: "/test-cases",  label: "Test Cases", meta: "library",    icon: "testcases"  },
     ...(user?.role === "ADMIN"
       ? [
           { to: "/users",                    label: "Users",    meta: "admin",   icon: "users" },

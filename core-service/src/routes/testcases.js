@@ -15,6 +15,79 @@ const router = express.Router();
 
 router.use(verifyToken);
 
+// Global view — all test cases the user owns, enriched with project/suite/run context.
+router.get("/all", async (req, res) => {
+  try {
+    const { page, limit, skip } = parsePagination(req.query);
+    const search    = req.query.search?.trim()    || "";
+    const projectId = req.query.projectId?.trim() || "";
+
+    const projects = await prisma.project.findMany({
+      where: { createdById: req.user.id },
+      select: { id: true, name: true },
+    });
+
+    const projectIds = projects.map((p) => p.id);
+    if (projectIds.length === 0) {
+      return res.json({ items: [], pagination: { page, limit, total: 0, pages: 0 } });
+    }
+
+    const where = {
+      suite: {
+        projectId: {
+          in: projectId ? [projectId] : projectIds,
+        },
+      },
+      ...(search && { title: { contains: search, mode: "insensitive" } }),
+    };
+
+    const [raw, total] = await Promise.all([
+      prisma.testCase.findMany({
+        where,
+        include: {
+          suite: {
+            include: { project: { select: { id: true, name: true } } },
+          },
+          results: {
+            include: { run: { select: { id: true, name: true, status: true } } },
+            orderBy: { executedAt: "desc" },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      prisma.testCase.count({ where }),
+    ]);
+
+    const items = raw.map((tc) => ({
+      id:          tc.id,
+      title:       tc.title,
+      description: tc.description,
+      priority:    tc.priority,
+      tags:        tc.tags,
+      createdAt:   tc.createdAt,
+      project:     tc.suite.project,
+      suite:       { id: tc.suite.id, name: tc.suite.name },
+      runs: tc.results.map((r) => ({
+        runId:        r.runId,
+        runName:      r.run.name,
+        runStatus:    r.run.status,
+        resultStatus: r.status,
+        executedAt:   r.executedAt,
+      })),
+      latestResult: tc.results[0]
+        ? { status: tc.results[0].status, runName: tc.results[0].run.name }
+        : null,
+    }));
+
+    res.json({ items, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
 router.get("/suite/:suiteId", async (req, res) => {
   try {
     // Only list cases from a suite the user owns.
