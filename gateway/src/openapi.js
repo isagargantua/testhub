@@ -690,6 +690,38 @@ const openapiSpec = {
     },
 
     // ── Test Cases ────────────────────────────────────────────────────────────
+    "/api/testcases/export": {
+      get: {
+        tags: ["Test Cases"],
+        summary: "Export your whole test case library as CSV or JSON",
+        description:
+          "Downloads the full authoring detail (including steps and expected " +
+          "result) of every test case you own. Honours the same search and " +
+          "projectId filters as GET /api/testcases/all.",
+        security: bearerAuth,
+        parameters: [
+          {
+            name: "format",
+            in: "query",
+            schema: { type: "string", enum: ["csv", "json"], default: "csv" },
+            description:
+              "csv columns: Test Case ID, Title, Description, Steps, Expected Result, Priority, Status, Tags, Project, Suite, Latest Result, Created At",
+          },
+          { name: "search", in: "query", schema: { type: "string" }, description: "Filter by title" },
+          { name: "projectId", in: "query", schema: { type: "string" }, description: "Filter by project" },
+        ],
+        responses: {
+          200: {
+            description: "Downloadable report",
+            content: {
+              "text/csv": { schema: { type: "string" } },
+              "application/json": { schema: { type: "object" } },
+            },
+          },
+          401: errorResponse,
+        },
+      },
+    },
     "/api/testcases/all": {
       get: {
         tags: ["Test Cases"],

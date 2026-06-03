@@ -8,7 +8,7 @@ const {
 } = require("../middleware/auth");
 
 const prisma = require("../utils/prisma");
-const { parsePagination, isNotFoundError } = require("../utils/http");
+const { parsePagination, isNotFoundError, csvEscape } = require("../utils/http");
 const { ownedSuite, ownedTestCase } = require("../utils/ownership");
 
 const router = express.Router();
@@ -107,6 +107,158 @@ router.get("/all", async (req, res) => {
     });
 
     res.json({ items, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// Export the user's whole test case library as a downloadable file.
+// `?format=csv` (default) returns a CSV attachment; `?format=json` a structured
+// JSON attachment. Honours the same `search` and `projectId` filters as /all, so
+// you can export a filtered subset. Unlike the run exporter (which exports
+// execution RESULTS), this exports the test case CATALOG — full authoring detail
+// including steps and expected result.
+//
+// Defined before "/:id" style routes; "/export" is a literal GET path so it
+// never collides with the parameterised PUT/DELETE "/:id" handlers below.
+router.get("/export", async (req, res) => {
+  try {
+    const search    = req.query.search?.trim()    || "";
+    const projectId = req.query.projectId?.trim() || "";
+
+    // Step 1 — resolve owned project IDs (same isolation model as /all)
+    const projects = await prisma.project.findMany({
+      where: { createdById: req.user.id },
+      select: { id: true, name: true },
+    });
+
+    const projectIds = projects.map((p) => p.id);
+    const scopedProjectIds = projectId
+      ? projectIds.filter((id) => id === projectId)
+      : projectIds;
+
+    // Step 2 — resolve suites within those projects
+    const suites = scopedProjectIds.length
+      ? await prisma.testSuite.findMany({
+          where: { projectId: { in: scopedProjectIds } },
+          select: {
+            id: true,
+            name: true,
+            project: { select: { id: true, name: true } },
+          },
+        })
+      : [];
+
+    const suiteIds = suites.map((s) => s.id);
+    const suiteMap = Object.fromEntries(suites.map((s) => [s.id, s]));
+
+    // Step 3 — query the full authoring content of every in-scope test case
+    const raw = suiteIds.length
+      ? await prisma.testCase.findMany({
+          where: {
+            suiteId: { in: suiteIds },
+            ...(search ? { title: { contains: search, mode: "insensitive" } } : {}),
+          },
+          select: {
+            id: true, title: true, description: true,
+            steps: true, expected: true, priority: true,
+            status: true, tags: true, createdAt: true, suiteId: true,
+            results: {
+              select: { status: true, run: { select: { name: true } } },
+              orderBy: { executedAt: "desc" },
+              take: 1,
+            },
+          },
+          orderBy: { createdAt: "desc" },
+        })
+      : [];
+
+    const rows = raw.map((tc) => {
+      const suite = suiteMap[tc.suiteId];
+      return {
+        id:           tc.id,
+        title:        tc.title,
+        description:  tc.description ?? "",
+        steps:        tc.steps ?? "",
+        expected:     tc.expected ?? "",
+        priority:     tc.priority,
+        status:       tc.status,
+        tags:         tc.tags ?? [],
+        project:      suite?.project?.name ?? "",
+        suite:        suite?.name ?? "",
+        latestResult: tc.results[0]?.status ?? "NOT_RUN",
+        createdAt:    tc.createdAt,
+      };
+    });
+
+    const format = String(req.query.format || "csv").toLowerCase();
+    const stamp = new Date().toISOString().slice(0, 10);
+
+    if (format === "json") {
+      res.setHeader("Content-Type", "application/json");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="testhub_testcases_${stamp}.json"`,
+      );
+
+      return res.send(
+        JSON.stringify(
+          {
+            exportedAt: new Date().toISOString(),
+            filters: { search: search || null, projectId: projectId || null },
+            totalCases: rows.length,
+            testCases: rows,
+          },
+          null,
+          2,
+        ),
+      );
+    }
+
+    const header = [
+      "Test Case ID",
+      "Title",
+      "Description",
+      "Steps",
+      "Expected Result",
+      "Priority",
+      "Status",
+      "Tags",
+      "Project",
+      "Suite",
+      "Latest Result",
+      "Created At",
+    ];
+
+    const lines = [header.join(",")];
+
+    for (const row of rows) {
+      lines.push(
+        [
+          csvEscape(row.id),
+          csvEscape(row.title),
+          csvEscape(row.description),
+          csvEscape(row.steps),
+          csvEscape(row.expected),
+          csvEscape(row.priority),
+          csvEscape(row.status),
+          csvEscape(row.tags.join("; ")),
+          csvEscape(row.project),
+          csvEscape(row.suite),
+          csvEscape(row.latestResult),
+          csvEscape(row.createdAt ? row.createdAt.toISOString() : ""),
+        ].join(","),
+      );
+    }
+
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="testhub_testcases_${stamp}.csv"`,
+    );
+
+    return res.send(lines.join("\r\n"));
   } catch (error) {
     console.log(error);
     res.status(500).json({ message: "Internal server error" });

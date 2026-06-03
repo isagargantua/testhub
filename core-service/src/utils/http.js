@@ -18,4 +18,16 @@ function isNotFoundError(error) {
   return Boolean(error) && error.code === "P2025";
 }
 
-module.exports = { parsePagination, isNotFoundError };
+// RFC 4180 CSV field escaping: quote and double-up internal quotes if the value
+// contains a comma, quote, or newline. Shared by the run and test-case exporters.
+function csvEscape(value) {
+  const str = value === null || value === undefined ? "" : String(value);
+
+  if (/[",\n\r]/.test(str)) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+
+  return str;
+}
+
+module.exports = { parsePagination, isNotFoundError, csvEscape };

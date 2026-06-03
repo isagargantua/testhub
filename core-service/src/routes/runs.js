@@ -5,7 +5,7 @@ const { body, validationResult } = require("express-validator");
 const { verifyToken, requireRole } = require("../middleware/auth");
 
 const prisma = require("../utils/prisma");
-const { isNotFoundError } = require("../utils/http");
+const { isNotFoundError, csvEscape } = require("../utils/http");
 const { ownedProject, ownedRun } = require("../utils/ownership");
 
 const router = express.Router();
@@ -281,18 +281,6 @@ router.delete("/:id", requireRole("ADMIN", "TESTER"), async (req, res) => {
 // Export a run's full results as a downloadable report. `?format=csv` (default)
 // returns a CSV attachment; `?format=json` returns a structured JSON attachment.
 // Great for practicing file-download assertions in UI/API automation.
-function csvEscape(value) {
-  const str = value === null || value === undefined ? "" : String(value);
-
-  // Quote and double-up internal quotes if the value contains a comma, quote,
-  // or newline — standard RFC 4180 CSV escaping.
-  if (/[",\n\r]/.test(str)) {
-    return `"${str.replace(/"/g, '""')}"`;
-  }
-
-  return str;
-}
-
 router.get("/:id/export", async (req, res) => {
   try {
     const run = await ownedRun(req.params.id, req.user.id);
