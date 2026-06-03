@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 
 const SECTIONS = [
   {
@@ -201,7 +202,7 @@ export default function HelpModal({ open, onClose }) {
 
   const section = SECTIONS.find((s) => s.id === active);
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(20,18,15,0.38)] p-4 backdrop-blur-sm"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
@@ -249,6 +250,7 @@ export default function HelpModal({ open, onClose }) {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
