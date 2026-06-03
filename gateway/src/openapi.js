@@ -55,7 +55,7 @@ const openapiSpec = {
         type: "object",
         required: ["email", "password"],
         properties: {
-          email: { type: "string", format: "email", example: "admin@testhub.dev" },
+          email: { type: "string", format: "email", example: "tester@testhub.dev" },
           password: { type: "string", example: "Password123" },
         },
       },
@@ -63,9 +63,9 @@ const openapiSpec = {
         type: "object",
         required: ["name", "email", "password"],
         properties: {
-          name: { type: "string", example: "Admin" },
-          email: { type: "string", format: "email" },
-          password: { type: "string", minLength: 6 },
+          name: { type: "string", example: "Jane Tester" },
+          email: { type: "string", format: "email", example: "jane@testhub.dev" },
+          password: { type: "string", minLength: 6, example: "secret123" },
         },
       },
       AuthResponse: {
@@ -82,7 +82,25 @@ const openapiSpec = {
           id: { type: "string" },
           name: { type: "string" },
           email: { type: "string" },
-          role: { type: "string", enum: ["ADMIN", "TESTER", "VIEWER"] },
+          role: { type: "string", enum: ["ADMIN", "TESTER"] },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
+        },
+      },
+      ResetPasswordInput: {
+        type: "object",
+        required: ["password"],
+        properties: {
+          password: { type: "string", minLength: 6, example: "newSecret123" },
+        },
+      },
+      PaginationMeta: {
+        type: "object",
+        properties: {
+          page: { type: "integer" },
+          limit: { type: "integer" },
+          total: { type: "integer" },
+          pages: { type: "integer" },
         },
       },
       Project: {
@@ -94,6 +112,7 @@ const openapiSpec = {
           status: { type: "string", enum: ["ACTIVE", "ARCHIVED"] },
           createdById: { type: "string" },
           createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
         },
       },
       ProjectInput: {
@@ -111,6 +130,16 @@ const openapiSpec = {
           name: { type: "string" },
           description: { type: "string", nullable: true },
           projectId: { type: "string" },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
+        },
+      },
+      SuiteInput: {
+        type: "object",
+        required: ["name"],
+        properties: {
+          name: { type: "string", example: "Login tests" },
+          description: { type: "string" },
         },
       },
       TestCase: {
@@ -121,13 +150,40 @@ const openapiSpec = {
           description: { type: "string", nullable: true },
           steps: { type: "string", nullable: true },
           expected: { type: "string", nullable: true },
-          priority: {
-            type: "string",
-            enum: ["LOW", "MEDIUM", "HIGH", "CRITICAL"],
-          },
+          priority: { type: "string", enum: ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
           status: { type: "string", enum: ["ACTIVE", "DEPRECATED"] },
           tags: { type: "array", items: { type: "string" } },
           suiteId: { type: "string" },
+          createdById: { type: "string" },
+          createdAt: { type: "string", format: "date-time" },
+        },
+      },
+      TestCaseInput: {
+        type: "object",
+        required: ["title"],
+        properties: {
+          title: { type: "string", example: "Verify login with valid credentials" },
+          description: { type: "string" },
+          steps: { type: "string", example: "1. Navigate to /login\n2. Enter credentials\n3. Click Submit" },
+          expected: { type: "string", example: "User is redirected to dashboard" },
+          priority: {
+            type: "string",
+            enum: ["LOW", "MEDIUM", "HIGH", "CRITICAL"],
+            default: "MEDIUM",
+          },
+          tags: { type: "array", items: { type: "string" }, example: ["smoke", "auth"] },
+        },
+      },
+      TestCaseUpdateInput: {
+        type: "object",
+        properties: {
+          title: { type: "string" },
+          description: { type: "string" },
+          steps: { type: "string" },
+          expected: { type: "string" },
+          priority: { type: "string", enum: ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+          status: { type: "string", enum: ["ACTIVE", "DEPRECATED"] },
+          tags: { type: "array", items: { type: "string" } },
         },
       },
       Run: {
@@ -136,12 +192,25 @@ const openapiSpec = {
           id: { type: "string" },
           name: { type: "string" },
           description: { type: "string", nullable: true },
-          status: {
-            type: "string",
-            enum: ["IN_PROGRESS", "COMPLETED", "ABORTED"],
-          },
+          status: { type: "string", enum: ["IN_PROGRESS", "COMPLETED", "ABORTED"] },
           selectedCaseIds: { type: "array", items: { type: "string" } },
           projectId: { type: "string" },
+          createdById: { type: "string" },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
+        },
+      },
+      RunInput: {
+        type: "object",
+        required: ["name"],
+        properties: {
+          name: { type: "string", example: "Sprint 12 smoke run" },
+          description: { type: "string" },
+          testCaseIds: {
+            type: "array",
+            items: { type: "string" },
+            description: "Subset of test case IDs to include. Omit to include all cases in the project.",
+          },
         },
       },
       Result: {
@@ -150,16 +219,20 @@ const openapiSpec = {
         properties: {
           testCaseId: { type: "string" },
           status: { type: "string", enum: ["PASS", "FAIL", "SKIP", "BLOCKED"] },
-          comment: { type: "string" },
+          comment: { type: "string", nullable: true },
         },
       },
     },
   },
   paths: {
+    // ── Auth ─────────────────────────────────────────────────────────────────
     "/api/auth/register": {
       post: {
         tags: ["Auth"],
-        summary: "Register a user (first user becomes ADMIN)",
+        summary: "Register a new user account (role: TESTER)",
+        description:
+          "Creates a new user with the TESTER role. Admin promotion is handled " +
+          "separately from the backend — it cannot be done through this endpoint.",
         requestBody: {
           required: true,
           content: {
@@ -170,7 +243,7 @@ const openapiSpec = {
         },
         responses: {
           201: {
-            description: "Created",
+            description: "User created",
             content: {
               "application/json": {
                 schema: { $ref: "#/components/schemas/AuthResponse" },
@@ -261,32 +334,147 @@ const openapiSpec = {
         tags: ["Auth"],
         summary: "Log out (blacklists the access token if Redis is available)",
         security: bearerAuth,
-        responses: { 200: { description: "OK" }, 401: errorResponse },
+        responses: {
+          200: {
+            description: "OK",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: { message: { type: "string" } },
+                },
+              },
+            },
+          },
+          401: errorResponse,
+        },
       },
     },
     "/api/auth/users": {
       get: {
         tags: ["Auth"],
-        summary: "List users (ADMIN only)",
+        summary: "List all users (ADMIN only)",
         security: bearerAuth,
         parameters: [
           { name: "page", in: "query", schema: { type: "integer", default: 1 } },
           { name: "limit", in: "query", schema: { type: "integer", default: 10 } },
-          { name: "search", in: "query", schema: { type: "string" } },
+          { name: "search", in: "query", schema: { type: "string" }, description: "Filter by name or email" },
         ],
-        responses: { 200: { description: "OK" }, 403: errorResponse },
+        responses: {
+          200: {
+            description: "OK",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    items: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/User" },
+                    },
+                    pagination: { $ref: "#/components/schemas/PaginationMeta" },
+                  },
+                },
+              },
+            },
+          },
+          401: errorResponse,
+          403: errorResponse,
+        },
       },
     },
+    "/api/auth/users/{id}/reset-password": {
+      patch: {
+        tags: ["Auth"],
+        summary: "Reset a user's password (ADMIN only)",
+        security: bearerAuth,
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "string" } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ResetPasswordInput" },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Password updated",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    message: { type: "string" },
+                    user: { $ref: "#/components/schemas/User" },
+                  },
+                },
+              },
+            },
+          },
+          401: errorResponse,
+          403: errorResponse,
+          404: errorResponse,
+        },
+      },
+    },
+    "/api/auth/users/{id}": {
+      delete: {
+        tags: ["Auth"],
+        summary: "Delete a user account (ADMIN only)",
+        description: "Cannot delete your own account or the last remaining ADMIN.",
+        security: bearerAuth,
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "string" } },
+        ],
+        responses: {
+          200: {
+            description: "User deleted",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: { message: { type: "string" } },
+                },
+              },
+            },
+          },
+          401: errorResponse,
+          403: errorResponse,
+          404: errorResponse,
+        },
+      },
+    },
+
+    // ── Projects ─────────────────────────────────────────────────────────────
     "/api/projects": {
       get: {
         tags: ["Projects"],
-        summary: "List projects (paginated)",
+        summary: "List your projects (paginated)",
         security: bearerAuth,
         parameters: [
           { name: "page", in: "query", schema: { type: "integer", default: 1 } },
           { name: "limit", in: "query", schema: { type: "integer", default: 10 } },
         ],
-        responses: { 200: { description: "OK" }, 401: errorResponse },
+        responses: {
+          200: {
+            description: "OK",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    items: { type: "array", items: { $ref: "#/components/schemas/Project" } },
+                    pagination: { $ref: "#/components/schemas/PaginationMeta" },
+                  },
+                },
+              },
+            },
+          },
+          401: errorResponse,
+        },
       },
       post: {
         tags: ["Projects"],
@@ -310,6 +498,7 @@ const openapiSpec = {
             },
           },
           400: errorResponse,
+          401: errorResponse,
         },
       },
     },
@@ -321,7 +510,18 @@ const openapiSpec = {
         parameters: [
           { name: "id", in: "path", required: true, schema: { type: "string" } },
         ],
-        responses: { 200: { description: "OK" }, 404: errorResponse },
+        responses: {
+          200: {
+            description: "OK",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/Project" },
+              },
+            },
+          },
+          401: errorResponse,
+          404: errorResponse,
+        },
       },
       put: {
         tags: ["Projects"],
@@ -330,7 +530,33 @@ const openapiSpec = {
         parameters: [
           { name: "id", in: "path", required: true, schema: { type: "string" } },
         ],
-        responses: { 200: { description: "OK" }, 404: errorResponse },
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  name: { type: "string" },
+                  description: { type: "string" },
+                  status: { type: "string", enum: ["ACTIVE", "ARCHIVED"] },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "OK",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/Project" },
+              },
+            },
+          },
+          401: errorResponse,
+          404: errorResponse,
+        },
       },
       delete: {
         tags: ["Projects"],
@@ -339,37 +565,74 @@ const openapiSpec = {
         parameters: [
           { name: "id", in: "path", required: true, schema: { type: "string" } },
         ],
-        responses: { 200: { description: "OK" }, 404: errorResponse },
+        responses: {
+          200: {
+            description: "OK",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: { message: { type: "string" } },
+                },
+              },
+            },
+          },
+          401: errorResponse,
+          404: errorResponse,
+        },
       },
     },
+
+    // ── Suites ───────────────────────────────────────────────────────────────
     "/api/suites/project/{projectId}": {
       get: {
         tags: ["Suites"],
         summary: "List suites in a project",
         security: bearerAuth,
         parameters: [
-          {
-            name: "projectId",
-            in: "path",
-            required: true,
-            schema: { type: "string" },
-          },
+          { name: "projectId", in: "path", required: true, schema: { type: "string" } },
         ],
-        responses: { 200: { description: "OK" } },
+        responses: {
+          200: {
+            description: "OK",
+            content: {
+              "application/json": {
+                schema: { type: "array", items: { $ref: "#/components/schemas/Suite" } },
+              },
+            },
+          },
+          401: errorResponse,
+          404: errorResponse,
+        },
       },
       post: {
         tags: ["Suites"],
         summary: "Create a suite in a project",
         security: bearerAuth,
         parameters: [
-          {
-            name: "projectId",
-            in: "path",
-            required: true,
-            schema: { type: "string" },
-          },
+          { name: "projectId", in: "path", required: true, schema: { type: "string" } },
         ],
-        responses: { 201: { description: "Created" }, 400: errorResponse },
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/SuiteInput" },
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: "Created",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/Suite" },
+              },
+            },
+          },
+          400: errorResponse,
+          401: errorResponse,
+          404: errorResponse,
+        },
       },
     },
     "/api/suites/{id}": {
@@ -380,7 +643,26 @@ const openapiSpec = {
         parameters: [
           { name: "id", in: "path", required: true, schema: { type: "string" } },
         ],
-        responses: { 200: { description: "OK" }, 404: errorResponse },
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/SuiteInput" },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "OK",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/Suite" },
+              },
+            },
+          },
+          401: errorResponse,
+          404: errorResponse,
+        },
       },
       delete: {
         tags: ["Suites"],
@@ -389,7 +671,72 @@ const openapiSpec = {
         parameters: [
           { name: "id", in: "path", required: true, schema: { type: "string" } },
         ],
-        responses: { 200: { description: "OK" }, 404: errorResponse },
+        responses: {
+          200: {
+            description: "OK",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: { message: { type: "string" } },
+                },
+              },
+            },
+          },
+          401: errorResponse,
+          404: errorResponse,
+        },
+      },
+    },
+
+    // ── Test Cases ────────────────────────────────────────────────────────────
+    "/api/testcases/all": {
+      get: {
+        tags: ["Test Cases"],
+        summary: "List all your test cases across all projects and suites",
+        security: bearerAuth,
+        parameters: [
+          { name: "page", in: "query", schema: { type: "integer", default: 1 } },
+          { name: "limit", in: "query", schema: { type: "integer", default: 20 } },
+          { name: "search", in: "query", schema: { type: "string" }, description: "Filter by title" },
+          { name: "projectId", in: "query", schema: { type: "string" }, description: "Filter by project" },
+        ],
+        responses: {
+          200: {
+            description: "OK",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    items: {
+                      type: "array",
+                      items: {
+                        allOf: [
+                          { $ref: "#/components/schemas/TestCase" },
+                          {
+                            type: "object",
+                            properties: {
+                              project: { $ref: "#/components/schemas/Project" },
+                              suite: { $ref: "#/components/schemas/Suite" },
+                              latestResult: {
+                                type: "string",
+                                enum: ["PASS", "FAIL", "SKIP", "BLOCKED"],
+                                nullable: true,
+                              },
+                            },
+                          },
+                        ],
+                      },
+                    },
+                    pagination: { $ref: "#/components/schemas/PaginationMeta" },
+                  },
+                },
+              },
+            },
+          },
+          401: errorResponse,
+        },
       },
     },
     "/api/testcases/suite/{suiteId}": {
@@ -398,30 +745,57 @@ const openapiSpec = {
         summary: "List test cases in a suite (paginated)",
         security: bearerAuth,
         parameters: [
-          {
-            name: "suiteId",
-            in: "path",
-            required: true,
-            schema: { type: "string" },
-          },
+          { name: "suiteId", in: "path", required: true, schema: { type: "string" } },
           { name: "page", in: "query", schema: { type: "integer", default: 1 } },
-          { name: "limit", in: "query", schema: { type: "integer", default: 10 } },
+          { name: "limit", in: "query", schema: { type: "integer", default: 20 } },
         ],
-        responses: { 200: { description: "OK" } },
+        responses: {
+          200: {
+            description: "OK",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    items: { type: "array", items: { $ref: "#/components/schemas/TestCase" } },
+                    pagination: { $ref: "#/components/schemas/PaginationMeta" },
+                  },
+                },
+              },
+            },
+          },
+          401: errorResponse,
+          404: errorResponse,
+        },
       },
       post: {
         tags: ["Test Cases"],
         summary: "Create a test case in a suite",
         security: bearerAuth,
         parameters: [
-          {
-            name: "suiteId",
-            in: "path",
-            required: true,
-            schema: { type: "string" },
-          },
+          { name: "suiteId", in: "path", required: true, schema: { type: "string" } },
         ],
-        responses: { 201: { description: "Created" }, 400: errorResponse },
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/TestCaseInput" },
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: "Created",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/TestCase" },
+              },
+            },
+          },
+          400: errorResponse,
+          401: errorResponse,
+          404: errorResponse,
+        },
       },
     },
     "/api/testcases/{id}": {
@@ -432,7 +806,26 @@ const openapiSpec = {
         parameters: [
           { name: "id", in: "path", required: true, schema: { type: "string" } },
         ],
-        responses: { 200: { description: "OK" }, 404: errorResponse },
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/TestCaseUpdateInput" },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "OK",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/TestCase" },
+              },
+            },
+          },
+          401: errorResponse,
+          404: errorResponse,
+        },
       },
       delete: {
         tags: ["Test Cases"],
@@ -441,52 +834,74 @@ const openapiSpec = {
         parameters: [
           { name: "id", in: "path", required: true, schema: { type: "string" } },
         ],
-        responses: { 200: { description: "OK" }, 404: errorResponse },
+        responses: {
+          200: {
+            description: "OK",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: { message: { type: "string" } },
+                },
+              },
+            },
+          },
+          401: errorResponse,
+          404: errorResponse,
+        },
       },
     },
+
+    // ── Runs ─────────────────────────────────────────────────────────────────
     "/api/runs/project/{projectId}": {
       get: {
         tags: ["Runs"],
         summary: "List runs in a project",
         security: bearerAuth,
         parameters: [
-          {
-            name: "projectId",
-            in: "path",
-            required: true,
-            schema: { type: "string" },
-          },
+          { name: "projectId", in: "path", required: true, schema: { type: "string" } },
         ],
-        responses: { 200: { description: "OK" } },
-      },
-      post: {
-        tags: ["Runs"],
-        summary: "Create a run (optionally scoped to selected test cases)",
-        security: bearerAuth,
-        parameters: [
-          {
-            name: "projectId",
-            in: "path",
-            required: true,
-            schema: { type: "string" },
-          },
-        ],
-        requestBody: {
-          content: {
-            "application/json": {
-              schema: {
-                type: "object",
-                required: ["name"],
-                properties: {
-                  name: { type: "string" },
-                  description: { type: "string" },
-                  testCaseIds: { type: "array", items: { type: "string" } },
-                },
+        responses: {
+          200: {
+            description: "OK",
+            content: {
+              "application/json": {
+                schema: { type: "array", items: { $ref: "#/components/schemas/Run" } },
               },
             },
           },
+          401: errorResponse,
+          404: errorResponse,
         },
-        responses: { 201: { description: "Created" }, 400: errorResponse },
+      },
+      post: {
+        tags: ["Runs"],
+        summary: "Create a run in a project",
+        security: bearerAuth,
+        parameters: [
+          { name: "projectId", in: "path", required: true, schema: { type: "string" } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/RunInput" },
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: "Created",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/Run" },
+              },
+            },
+          },
+          400: errorResponse,
+          401: errorResponse,
+          404: errorResponse,
+        },
       },
     },
     "/api/runs/{id}": {
@@ -497,7 +912,49 @@ const openapiSpec = {
         parameters: [
           { name: "id", in: "path", required: true, schema: { type: "string" } },
         ],
-        responses: { 200: { description: "OK" }, 404: errorResponse },
+        responses: {
+          200: {
+            description: "OK",
+            content: {
+              "application/json": {
+                schema: {
+                  allOf: [
+                    { $ref: "#/components/schemas/Run" },
+                    {
+                      type: "object",
+                      properties: {
+                        results: {
+                          type: "array",
+                          items: {
+                            type: "object",
+                            properties: {
+                              id: { type: "string" },
+                              testCaseId: { type: "string" },
+                              status: { type: "string", enum: ["PASS", "FAIL", "SKIP", "BLOCKED"] },
+                              comment: { type: "string", nullable: true },
+                              executedAt: { type: "string", format: "date-time" },
+                            },
+                          },
+                        },
+                        summary: {
+                          type: "object",
+                          properties: {
+                            PASS: { type: "integer" },
+                            FAIL: { type: "integer" },
+                            SKIP: { type: "integer" },
+                            BLOCKED: { type: "integer" },
+                          },
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          401: errorResponse,
+          404: errorResponse,
+        },
       },
       put: {
         tags: ["Runs"],
@@ -506,7 +963,34 @@ const openapiSpec = {
         parameters: [
           { name: "id", in: "path", required: true, schema: { type: "string" } },
         ],
-        responses: { 200: { description: "OK" }, 404: errorResponse },
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  name: { type: "string" },
+                  description: { type: "string" },
+                  status: { type: "string", enum: ["IN_PROGRESS", "COMPLETED", "ABORTED"] },
+                  selectedCaseIds: { type: "array", items: { type: "string" } },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "OK",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/Run" },
+              },
+            },
+          },
+          401: errorResponse,
+          404: errorResponse,
+        },
       },
       delete: {
         tags: ["Runs"],
@@ -515,7 +999,21 @@ const openapiSpec = {
         parameters: [
           { name: "id", in: "path", required: true, schema: { type: "string" } },
         ],
-        responses: { 200: { description: "OK" }, 404: errorResponse },
+        responses: {
+          200: {
+            description: "OK",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: { message: { type: "string" } },
+                },
+              },
+            },
+          },
+          401: errorResponse,
+          404: errorResponse,
+        },
       },
     },
     "/api/runs/{id}/results": {
@@ -534,13 +1032,35 @@ const openapiSpec = {
             },
           },
         },
-        responses: { 200: { description: "OK" }, 400: errorResponse },
+        responses: {
+          200: {
+            description: "OK",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    id: { type: "string" },
+                    runId: { type: "string" },
+                    testCaseId: { type: "string" },
+                    status: { type: "string", enum: ["PASS", "FAIL", "SKIP", "BLOCKED"] },
+                    comment: { type: "string", nullable: true },
+                    executedAt: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          400: errorResponse,
+          401: errorResponse,
+          404: errorResponse,
+        },
       },
     },
     "/api/runs/{id}/export": {
       get: {
         tags: ["Runs"],
-        summary: "Export a run's results as a downloadable CSV or JSON report",
+        summary: "Export a run's results as CSV or JSON",
         security: bearerAuth,
         parameters: [
           { name: "id", in: "path", required: true, schema: { type: "string" } },
@@ -548,26 +1068,63 @@ const openapiSpec = {
             name: "format",
             in: "query",
             schema: { type: "string", enum: ["csv", "json"], default: "csv" },
+            description: "csv columns: Test Case ID, Title, Priority, Status, Comment, Executed At",
           },
         ],
         responses: {
           200: {
-            description: "A downloadable report attachment",
+            description: "Downloadable report",
             content: {
               "text/csv": { schema: { type: "string" } },
               "application/json": { schema: { type: "object" } },
             },
           },
+          401: errorResponse,
           404: errorResponse,
         },
       },
     },
+
+    // ── Dashboard ─────────────────────────────────────────────────────────────
     "/api/dashboard/stats": {
       get: {
         tags: ["Dashboard"],
         summary: "Aggregate counts, pass rate, and recent run breakdown",
         security: bearerAuth,
-        responses: { 200: { description: "OK" }, 401: errorResponse },
+        responses: {
+          200: {
+            description: "OK",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    totalProjects: { type: "integer" },
+                    activeProjects: { type: "integer" },
+                    totalTestCases: { type: "integer" },
+                    totalRuns: { type: "integer" },
+                    activeRuns: { type: "integer" },
+                    passRatePercent: { type: "number" },
+                    resultBreakdown: {
+                      type: "object",
+                      properties: {
+                        PASS: { type: "integer" },
+                        FAIL: { type: "integer" },
+                        SKIP: { type: "integer" },
+                        BLOCKED: { type: "integer" },
+                      },
+                    },
+                    recentRuns: { type: "array", items: { $ref: "#/components/schemas/Run" } },
+                    latestRunName: { type: "string", nullable: true },
+                    latestRunStatus: { type: "string", nullable: true },
+                    latestRunResults: { type: "array", items: { type: "object" } },
+                  },
+                },
+              },
+            },
+          },
+          401: errorResponse,
+        },
       },
     },
     "/api/dashboard/results": {
@@ -584,7 +1141,28 @@ const openapiSpec = {
           },
         ],
         responses: {
-          200: { description: "OK" },
+          200: {
+            description: "OK",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      id: { type: "string" },
+                      status: { type: "string" },
+                      comment: { type: "string", nullable: true },
+                      executedAt: { type: "string", format: "date-time" },
+                      testCaseTitle: { type: "string" },
+                      priority: { type: "string" },
+                      runName: { type: "string" },
+                    },
+                  },
+                },
+              },
+            },
+          },
           400: errorResponse,
           401: errorResponse,
         },
