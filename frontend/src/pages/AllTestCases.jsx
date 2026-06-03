@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getAllTestCases } from "../api/testcases";
+import { getAllTestCases, exportTestCases } from "../api/testcases";
 import { getProjects } from "../api/projects";
 import Badge from "../components/Badge";
 import Pagination from "../components/Pagination";
@@ -49,6 +49,7 @@ export default function AllTestCases() {
   const [search,     setSearch]     = useState("");
   const [projectId,  setProjectId]  = useState("");
   const [projects,   setProjects]   = useState([]);
+  const [exporting,  setExporting]  = useState(null); // null | "csv" | "json"
 
   // debounce search input
   const searchTimer = useRef(null);
@@ -85,6 +86,19 @@ export default function AllTestCases() {
   }, [page, debouncedSearch, projectId]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Export the current filtered view (not just the visible page) as a file.
+  async function handleExport(format) {
+    setExporting(format);
+    setError("");
+    try {
+      await exportTestCases({ format, search: debouncedSearch, projectId });
+    } catch {
+      setError("Export failed. Please try again.");
+    } finally {
+      setExporting(null);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -125,6 +139,26 @@ export default function AllTestCases() {
             <option key={p.id} value={p.id}>{p.name}</option>
           ))}
         </select>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            className="btn-secondary whitespace-nowrap"
+            onClick={() => handleExport("csv")}
+            disabled={exporting !== null || loading || pagination.total === 0}
+            title="Download the current filtered view as CSV"
+          >
+            {exporting === "csv" ? "Exporting…" : "Export CSV"}
+          </button>
+          <button
+            type="button"
+            className="btn-secondary whitespace-nowrap"
+            onClick={() => handleExport("json")}
+            disabled={exporting !== null || loading || pagination.total === 0}
+            title="Download the current filtered view as JSON"
+          >
+            {exporting === "json" ? "Exporting…" : "Export JSON"}
+          </button>
+        </div>
       </div>
 
       {error && (
