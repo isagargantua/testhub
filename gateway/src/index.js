@@ -33,7 +33,9 @@ const coreServiceTarget = normalizeTarget(process.env.CORE_SERVICE_URL);
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   process.env.CORS_ORIGIN,
+  process.env.RENDER_EXTERNAL_URL, // gateway's own URL so /docs Swagger UI can call /api/*
   "http://localhost:5173",
+  "http://localhost:3000",
 ]
   .filter(Boolean)
   .flatMap((origin) => origin.split(","))
