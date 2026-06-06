@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 
 export default function Modal({ open, onClose, title, children }) {
   useEffect(() => {
@@ -11,7 +12,10 @@ export default function Modal({ open, onClose, title, children }) {
 
   if (!open) return null;
 
-  return (
+  // Render through a portal to document.body so `position: fixed` is relative to
+  // the viewport, not a transformed/blurred ancestor (which would push it
+  // off-centre — e.g. on RunDetail's "Add Test Cases").
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(20,18,15,0.38)] p-4 backdrop-blur-sm"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
@@ -33,6 +37,7 @@ export default function Modal({ open, onClose, title, children }) {
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
