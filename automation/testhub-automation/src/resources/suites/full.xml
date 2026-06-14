@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<!-- Everything, every group, every layer. -->
+<suite name="testHub-Full" parallel="classes" thread-count="3" verbose="1">
+
+    <listeners>
+        <listener class-name="com.testhub.listeners.TestListener"/>
+        <listener class-name="com.testhub.listeners.RetryTransformer"/>
+    </listeners>
+
+    <test name="All">
+        <packages>
+            <package name="com.testhub.tests.ui"/>
+            <package name="com.testhub.tests.e2e"/>
+            <package name="com.testhub.tests.api"/>
+            <package name="com.testhub.tests.hybrid"/>
+        </packages>
+    </test>
+</suite>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<suite name="testHub-Smoke" parallel="classes" thread-count="3" verbose="1">
+
+    <listeners>
+        <listener class-name="com.testhub.listeners.TestListener"/>
+        <listener class-name="com.testhub.listeners.RetryTransformer"/>
+    </listeners>
+
+    <test name="Smoke">
+        <groups>
+            <run>
+                <include name="smoke"/>
+            </run>
+        </groups>
+        <packages>
+            <package name="com.testhub.tests.ui"/>
+            <package name="com.testhub.tests.api"/>
+            <package name="com.testhub.tests.e2e"/>
+        </packages>
+    </test>
+</suite>

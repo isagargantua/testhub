@@ -1,0 +1,24 @@
+# Maven
+target/
+
+# Test artifacts
+test-output/
+logs/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.project
+.classpath
+.settings/
+# Eclipse workspace folders (if the project dir is ever opened as a workspace)
+.metadata/
+RemoteSystemsTempFiles/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Selenium Manager cache (if ever placed locally)
+selenium-manager/

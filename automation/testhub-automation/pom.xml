@@ -1,0 +1,294 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.testhub</groupId>
+    <artifactId>testhub-automation</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+    <name>testHub Automation</name>
+    <description>
+        UI + API automation for testHub, split by domain: src/common (shared core),
+        src/api (RestAssured API + tests), src/ui (Page Objects + UI tests), and
+        src/hybrid (one API-assisted UI test). Selenium 4, TestNG, ExtentReports,
+        RestAssured, Log4j2.
+    </description>
+
+    <properties>
+        <maven.compiler.release>17</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <!-- Dependency versions -->
+        <selenium.version>4.27.0</selenium.version>
+        <testng.version>7.10.2</testng.version>
+        <extentreports.version>5.1.2</extentreports.version>
+        <allure.version>2.29.0</allure.version>
+        <aspectj.version>1.9.22.1</aspectj.version>
+        <restassured.version>5.5.0</restassured.version>
+        <jackson.version>2.18.2</jackson.version>
+        <log4j.version>2.24.3</log4j.version>
+        <commons.io.version>2.18.0</commons.io.version>
+        <poi.version>5.3.0</poi.version>
+        <datafaker.version>2.4.2</datafaker.version>
+
+        <!-- Plugin versions -->
+        <surefire.version>3.5.2</surefire.version>
+        <compiler.plugin.version>3.13.0</compiler.plugin.version>
+        <buildhelper.plugin.version>3.6.0</buildhelper.plugin.version>
+        <allure.maven.version>2.12.0</allure.maven.version>
+
+        <!-- Default suite — override with -DsuiteXmlFile=src/resources/suites/<file>.xml -->
+        <suiteXmlFile>src/resources/suites/regression.xml</suiteXmlFile>
+
+        <!-- Runtime defaults (override on the CLI with -Dbrowser=... -Dheadless=...) -->
+        <browser>chrome</browser>
+        <headless>false</headless>
+    </properties>
+
+    <dependencies>
+        <!-- Selenium 4 (ships Selenium Manager: auto-resolves the browser driver) -->
+        <dependency>
+            <groupId>org.seleniumhq.selenium</groupId>
+            <artifactId>selenium-java</artifactId>
+            <version>${selenium.version}</version>
+        </dependency>
+
+        <!-- TestNG -->
+        <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
+            <version>${testng.version}</version>
+        </dependency>
+
+        <!-- ExtentReports (rich HTML reporting) -->
+        <dependency>
+            <groupId>com.aventstack</groupId>
+            <artifactId>extentreports</artifactId>
+            <version>${extentreports.version}</version>
+        </dependency>
+
+        <!-- Allure (alternative reporting — pick via -Dreport.type=extent|allure|both) -->
+        <dependency>
+            <groupId>io.qameta.allure</groupId>
+            <artifactId>allure-testng</artifactId>
+            <version>${allure.version}</version>
+        </dependency>
+        <!-- AspectJ weaver — lets Allure record @Step/@Attachment annotations -->
+        <dependency>
+            <groupId>org.aspectj</groupId>
+            <artifactId>aspectjweaver</artifactId>
+            <version>${aspectj.version}</version>
+        </dependency>
+
+        <!-- RestAssured — the API layer (src/api) -->
+        <dependency>
+            <groupId>io.rest-assured</groupId>
+            <artifactId>rest-assured</artifactId>
+            <version>${restassured.version}</version>
+        </dependency>
+
+        <!-- Jackson — JSON test data + POJO (de)serialization -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+
+        <!-- Log4j2 -->
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+            <version>${log4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-api</artifactId>
+            <version>${log4j.version}</version>
+        </dependency>
+        <!-- Route Selenium's SLF4J logging through Log4j2 -->
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-slf4j2-impl</artifactId>
+            <version>${log4j.version}</version>
+        </dependency>
+
+        <!-- Apache POI — Excel-driven test data -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>${poi.version}</version>
+        </dependency>
+
+        <!-- Commons IO — file/download helpers -->
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+            <version>${commons.io.version}</version>
+        </dependency>
+
+        <!-- DataFaker — realistic random test data -->
+        <dependency>
+            <groupId>net.datafaker</groupId>
+            <artifactId>datafaker</artifactId>
+            <version>${datafaker.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <!-- All shared resources (config, suites, testdata, log4j2) live here. -->
+        <testResources>
+            <testResource>
+                <directory>src/resources</directory>
+            </testResource>
+        </testResources>
+
+        <!-- Tells Eclipse m2e how to treat plugin goals during the IDE build.
+             Zero effect on "mvn test" — read only by Eclipse. -->
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.eclipse.m2e</groupId>
+                    <artifactId>lifecycle-mapping</artifactId>
+                    <version>1.0.0</version>
+                    <configuration>
+                        <lifecycleMappingMetadata>
+                            <pluginExecutions>
+                                <!-- Run build-helper in Eclipse so the four src/ domain
+                                     roots are registered as source folders -->
+                                <pluginExecution>
+                                    <pluginExecutionFilter>
+                                        <groupId>org.codehaus.mojo</groupId>
+                                        <artifactId>build-helper-maven-plugin</artifactId>
+                                        <versionRange>[1.0,)</versionRange>
+                                        <goals><goal>add-test-source</goal></goals>
+                                    </pluginExecutionFilter>
+                                    <action><execute><runOnIncremental>false</runOnIncremental></execute></action>
+                                </pluginExecution>
+                                <!-- Don't run the test suite as part of the IDE build -->
+                                <pluginExecution>
+                                    <pluginExecutionFilter>
+                                        <groupId>org.apache.maven.plugins</groupId>
+                                        <artifactId>maven-surefire-plugin</artifactId>
+                                        <versionRange>[3.0,)</versionRange>
+                                        <goals><goal>test</goal></goals>
+                                    </pluginExecutionFilter>
+                                    <action><ignore/></action>
+                                </pluginExecution>
+                            </pluginExecutions>
+                        </lifecycleMappingMetadata>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>${compiler.plugin.version}</version>
+            </plugin>
+
+            <!-- The project is split by domain rather than Maven's main/test, so we
+                 register the four domain folders as (test-scoped) source roots. -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>${buildhelper.plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>add-domain-sources</id>
+                        <phase>generate-test-sources</phase>
+                        <goals>
+                            <goal>add-test-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>src/common/java</source>
+                                <source>src/api/java</source>
+                                <source>src/ui/java</source>
+                                <source>src/hybrid/java</source>
+                            </sources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>${surefire.version}</version>
+                <configuration>
+                    <suiteXmlFiles>
+                        <suiteXmlFile>${suiteXmlFile}</suiteXmlFile>
+                    </suiteXmlFiles>
+                    <!-- AspectJ agent so Allure can intercept steps/attachments -->
+                    <argLine>-javaagent:"${settings.localRepository}/org/aspectj/aspectjweaver/${aspectj.version}/aspectjweaver-${aspectj.version}.jar"</argLine>
+                    <!-- Forwarded to the test JVM; override on the CLI, e.g.
+                         mvn test -Dbrowser=firefox -Dheadless=true -Dbase.url=http://localhost:5173 -->
+                    <systemPropertyVariables>
+                        <browser>${browser}</browser>
+                        <headless>${headless}</headless>
+                        <allure.results.directory>${project.build.directory}/allure-results</allure.results.directory>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+
+            <!-- View the Allure report: mvn allure:serve  (or mvn allure:report) -->
+            <plugin>
+                <groupId>io.qameta.allure</groupId>
+                <artifactId>allure-maven</artifactId>
+                <version>${allure.maven.version}</version>
+                <configuration>
+                    <resultsDirectory>${project.build.directory}/allure-results</resultsDirectory>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <!-- mvn test -Pui     → pure-UI tests only -->
+        <profile>
+            <id>ui</id>
+            <properties>
+                <suiteXmlFile>src/resources/suites/ui.xml</suiteXmlFile>
+            </properties>
+        </profile>
+        <!-- mvn test -Papi    → pure-API tests only -->
+        <profile>
+            <id>api</id>
+            <properties>
+                <suiteXmlFile>src/resources/suites/api.xml</suiteXmlFile>
+            </properties>
+        </profile>
+        <!-- mvn test -Phybrid → the single API-assisted UI test -->
+        <profile>
+            <id>hybrid</id>
+            <properties>
+                <suiteXmlFile>src/resources/suites/hybrid.xml</suiteXmlFile>
+            </properties>
+        </profile>
+        <!-- mvn test -Psmoke  → fast smoke set across all layers -->
+        <profile>
+            <id>smoke</id>
+            <properties>
+                <suiteXmlFile>src/resources/suites/smoke.xml</suiteXmlFile>
+            </properties>
+        </profile>
+        <!-- mvn test -Pregression (default) -->
+        <profile>
+            <id>regression</id>
+            <properties>
+                <suiteXmlFile>src/resources/suites/regression.xml</suiteXmlFile>
+            </properties>
+        </profile>
+        <!-- mvn test -Pfull   → everything -->
+        <profile>
+            <id>full</id>
+            <properties>
+                <suiteXmlFile>src/resources/suites/full.xml</suiteXmlFile>
+            </properties>
+        </profile>
+    </profiles>
+</project>

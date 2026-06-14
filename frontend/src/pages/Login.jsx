@@ -275,7 +275,7 @@ export default function Login() {
         </div>
 
         <p className="lg-tagline" aria-hidden="true">
-          Four pairs of goggles. Always watching.
+          Manage projects, test cases, and runs in one secure workspace.
         </p>
       </div>
 

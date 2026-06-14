@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<!-- Serial smoke: one representative test per page object, run sequentially so
+     registrations are naturally spaced and don't trip the free-tier throttle.
+     Validates every page object against the live deployment. -->
+<suite name="testHub-Smoke-Serial" verbose="2">
+    <listeners>
+        <listener class-name="com.testhub.listeners.TestListener"/>
+    </listeners>
+    <test name="Smoke-Serial">
+        <classes>
+            <class name="com.testhub.tests.ui.LoginTest">
+                <methods><include name="shouldLoginWithValidCredentials"/></methods>
+            </class>
+            <class name="com.testhub.tests.ui.RegisterTest">
+                <methods><include name="shouldRegisterNewAccount"/></methods>
+            </class>
+            <class name="com.testhub.tests.ui.ProjectsTest">
+                <methods><include name="shouldCreateProject"/></methods>
+            </class>
+            <class name="com.testhub.tests.ui.SuiteTest">
+                <methods><include name="shouldCreateSuite"/></methods>
+            </class>
+            <class name="com.testhub.tests.ui.TestCaseTest">
+                <methods><include name="shouldSupportAllPriorities"/></methods>
+            </class>
+            <class name="com.testhub.tests.ui.TestRunTest">
+                <methods><include name="shouldCreateRunWithSelectedCases"/></methods>
+            </class>
+            <class name="com.testhub.tests.ui.RunDetailTest">
+                <methods><include name="shouldMarkResultAndUpdateSummary"/></methods>
+            </class>
+            <class name="com.testhub.tests.ui.DashboardTest">
+                <methods><include name="shouldRenderKpiCards"/></methods>
+            </class>
+            <class name="com.testhub.tests.ui.AllTestCasesTest">
+                <methods><include name="shouldFindCaseInLibrary"/></methods>
+            </class>
+            <class name="com.testhub.tests.ui.NavigationTest">
+                <methods><include name="shouldNavigateViaSidebar"/></methods>
+            </class>
+            <class name="com.testhub.tests.ui.ThemeTest">
+                <methods><include name="shouldToggleAndPersistTheme"/></methods>
+            </class>
+        </classes>
+    </test>
+</suite>

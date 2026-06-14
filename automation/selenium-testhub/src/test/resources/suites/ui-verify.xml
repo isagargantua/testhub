@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<!-- Serial single-flow UI smoke: validates the page objects against the live
+     app with only one registration (minimal free-tier throttle risk). -->
+<suite name="testHub-UI-Verify" verbose="2">
+    <listeners>
+        <listener class-name="com.testhub.listeners.TestListener"/>
+    </listeners>
+    <test name="UI-Verify">
+        <classes>
+            <class name="com.testhub.tests.e2e.EndToEndWorkflowTest"/>
+        </classes>
+    </test>
+</suite>

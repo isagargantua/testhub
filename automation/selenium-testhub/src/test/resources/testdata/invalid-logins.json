@@ -1,0 +1,20 @@
+[
+  {
+    "scenario": "Wrong password",
+    "email": "nobody-xyz@testhub.io",
+    "password": "WrongPass123",
+    "expectedError": "Invalid credentials"
+  },
+  {
+    "scenario": "Unregistered email",
+    "email": "does-not-exist-9999@testhub.io",
+    "password": "Whatever123",
+    "expectedError": "Invalid credentials"
+  },
+  {
+    "scenario": "Malformed email",
+    "email": "not-an-email",
+    "password": "Whatever123",
+    "expectedError": ""
+  }
+]

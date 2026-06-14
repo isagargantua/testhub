@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<!-- The single hybrid test: API login + API seeding, verified through the UI. -->
+<suite name="testHub-Hybrid" verbose="1">
+
+    <listeners>
+        <listener class-name="com.testhub.listeners.TestListener"/>
+        <listener class-name="com.testhub.listeners.RetryTransformer"/>
+    </listeners>
+
+    <test name="Hybrid">
+        <packages>
+            <package name="com.testhub.tests.hybrid"/>
+        </packages>
+    </test>
+</suite>
