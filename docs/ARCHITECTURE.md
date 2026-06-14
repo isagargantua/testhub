@@ -20,41 +20,42 @@ proxies to two backend services backed by one PostgreSQL database.
 
 ```
                           ┌──────────────────────────────┐
-                          │      Frontend (React SPA)      │
-                          │   Vercel · Vite · Tailwind     │
-                          └───────────────┬────────────────┘
+                          │      Frontend (React SPA)    │
+                          │   Vercel · Vite · Tailwind   │
+                          └───────────────┬──────────────┘
                                           │  HTTPS (axios, Bearer JWT)
                                           ▼
                           ┌──────────────────────────────┐
-                          │           Gateway              │
-                          │ Express · http-proxy · CORS    │
-                          │ /docs (Swagger) · /health      │
-                          └───────┬───────────────┬────────┘
+                          │           Gateway            │
+                          │ Express · http-proxy · CORS  │
+                          │ /docs (Swagger) · /health    │
+                          └───────┬───────────────┬──────┘
                  /api/auth/*      │               │   /api/projects, /suites,
                                   ▼               ▼   /testcases, /runs, /dashboard
                    ┌────────────────────┐   ┌────────────────────┐
-                   │    auth-service     │   │    core-service     │
-                   │ Express · Prisma    │   │ Express · Prisma    │
-                   │ bcrypt · JWT        │   │ JWT verify (local)  │
-                   │ users, login, token │   │ projects/suites/    │
-                   └─────────┬──────────┘   │ cases/runs/results  │
+                   │    auth-service    │   │    core-service    │
+                   │ Express · Prisma   │   │ Express · Prisma   │
+                   │ bcrypt · JWT       │   │ JWT verify (local) │
+                   │ users, login, token│   │ projects/suites/   │
+                   └─────────┬──────────┘   │ cases/runs/results │
                              │              └─────────┬──────────┘
                              │   ┌────────────────────┘
                              ▼   ▼
                        ┌──────────────────┐        ┌───────────────────┐
-                       │   PostgreSQL      │        │  Redis (optional)  │
-                       │  (Prisma schema)  │        │  JWT blacklist     │
+                       │   PostgreSQL     │        │  Redis (optional) │
+                       │  (Prisma schema) │        │  JWT blacklist    │
                        └──────────────────┘        └───────────────────┘
 ```
 
 **Key architectural facts**
+
 - The **gateway** is the only public entry point for the API. It proxies by path
   prefix and serves interactive **OpenAPI docs at `/docs`**.
 - **auth-service** owns identity: users, password hashing, and JWT issuing.
 - **core-service** owns the domain: projects → suites → test cases → runs →
   results, plus dashboard aggregates and run export.
 - **JWTs are verified independently** in each service using a shared
-  `JWT_ACCESS_SECRET`. core-service does *not* call auth-service to validate a
+  `JWT_ACCESS_SECRET`. core-service does _not_ call auth-service to validate a
   token — so an auth-service restart never logs core users out. This decoupling
   is deliberate.
 - Each service has its **own Prisma client** (a singleton per service) and they
@@ -144,7 +145,7 @@ TestResult(id, status[PASS|FAIL|SKIP|BLOCKED], comment,
            testCaseId →TestCase, runId →TestRun)  @@unique(runId, testCaseId)
 ```
 
-- A **run** can be *scoped* to a subset of a project's test cases via
+- A **run** can be _scoped_ to a subset of a project's test cases via
   `selectedCaseIds`. If empty, the run covers all cases in the project's suites.
 - A **result** is an upsert keyed by `(runId, testCaseId)` — re-marking a case
   updates the existing result rather than duplicating it.
@@ -163,7 +164,7 @@ TestResult(id, status[PASS|FAIL|SKIP|BLOCKED], comment,
    every request. A request interceptor adds it; a response interceptor handles
    401 by refreshing once, and transparently **retries cold-start failures**.
 3. **Open dashboard** — `GET /api/dashboard/stats` → gateway → core-service.
-   core-service verifies the JWT *locally* (no auth-service call), runs a handful
+   core-service verifies the JWT _locally_ (no auth-service call), runs a handful
    of `count`s plus a `groupBy` for the PASS/FAIL/SKIP/BLOCKED breakdown.
 4. **Create a run** — `POST /api/runs/project/:projectId` with `testCaseIds`.
    core-service stores the run scoped to those cases.
@@ -177,12 +178,15 @@ TestResult(id, status[PASS|FAIL|SKIP|BLOCKED], comment,
 ## 5. Cross-cutting concerns
 
 ### Authentication & authorization
+
 - JWT access token (8h) + refresh token (30d), both HMAC-signed.
 - `requireRole("ADMIN"|"TESTER")` guards writes; reads need only a valid token.
 - Logout optionally blacklists the token in Redis (best-effort, **fails open**).
 
 ### Free-tier cold starts (the dominant operational constraint)
+
 Render free services sleep after ~15 min idle and take ~24s+ to wake. Mitigations:
+
 - **Frontend**: `warmup.js` pings all services on load and on tab-refocus;
   `client.js` retries transient 5xx/timeout failures with backoff.
 - **CI**: `.github/workflows/keep-warm.yml` pings `/health` on a schedule during
@@ -190,29 +194,31 @@ Render free services sleep after ~15 min idle and take ~24s+ to wake. Mitigation
 - **Automation**: each framework warms services before the suite + a retry analyzer.
 
 ### Rate limiting
+
 Opt-in and **off by default** (`ENABLE_AUTH_RATE_LIMIT=true` to enable). This was
 deliberately disabled after a 3-hop proxy chain caused IP-keying to lock every
 client into one shared bucket. See `auth-service/src/middleware/rateLimiter.js`.
 
 ### Theming (frontend)
+
 Light/dark mode via a `data-theme` attribute on `<html>`, persisted in
 `localStorage`, defaulting to the OS preference, set **before first paint** by an
-inline script in `index.html`. Dark styles are an *additive* layer in `index.css`
+inline script in `index.html`. Dark styles are an _additive_ layer in `index.css`
 scoped to `[data-theme="dark"]`, so light mode is byte-for-byte unchanged.
 
 ---
 
 ## 6. Tech stack
 
-| Layer | Tech |
-|---|---|
-| Frontend | React 19, Vite 8, Tailwind CSS 3, React Router 7, axios, Recharts |
-| Gateway | Node, Express 4, http-proxy-middleware, swagger-ui-express |
-| Services | Node, Express 4, Prisma 5, jsonwebtoken, bcryptjs, ioredis |
-| Database | PostgreSQL |
-| Hosting | Render (backend, free tier), Vercel (frontend) |
-| API automation | Java 17, RestAssured 5, Jackson, TestNG |
-| UI automation | Java 17, Selenium 4 / Playwright, TestNG, ExtentReports |
+| Layer          | Tech                                                              |
+| -------------- | ----------------------------------------------------------------- |
+| Frontend       | React 19, Vite 8, Tailwind CSS 3, React Router 7, axios, Recharts |
+| Gateway        | Node, Express 4, http-proxy-middleware, swagger-ui-express        |
+| Services       | Node, Express 4, Prisma 5, jsonwebtoken, bcryptjs, ioredis        |
+| Database       | PostgreSQL                                                        |
+| Hosting        | Render (backend, free tier), Vercel (frontend)                    |
+| API automation | Java 17, RestAssured 5, Jackson, TestNG                           |
+| UI automation  | Java 17, Selenium 4 / Playwright, TestNG, ExtentReports           |
 
 ---
 
@@ -227,6 +233,9 @@ cd frontend     && npm install && npm run dev      # :5173
 
 # Frontend talks to the gateway via VITE_API_URL (defaults to http://localhost:3000)
 ```
+
 See [`docs/components/`](./components) for each service's env vars and routes.
+
 ```
+
 ```
