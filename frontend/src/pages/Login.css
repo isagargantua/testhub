@@ -1,0 +1,411 @@
+/* ============================================================
+   TestHub · living login — four original goggle-buddies that
+   breathe, blink, track your cursor, lean in to peek at fields,
+   look away when the password is exposed, nod "no" on a failed
+   login, and smile when you're in. Scoped to .lg-* only.
+   ============================================================ */
+
+.lg-root {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 1.08fr 1fr;
+  background: #ffffff;
+  font-family: "Manrope", sans-serif;
+  overflow: hidden;
+}
+
+/* ---------------- Left: art panel ---------------- */
+.lg-art {
+  position: relative;
+  overflow: hidden;
+  background: radial-gradient(130% 90% at 28% 6%, #f4eefe 0%, #eae9f4 46%, #e4e1ec 100%);
+}
+.lg-art::before,
+.lg-art::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  pointer-events: none;
+}
+.lg-art::before {
+  width: 460px;
+  height: 460px;
+  top: -120px;
+  left: -120px;
+  background: radial-gradient(circle, rgba(122, 69, 255, 0.26), transparent 70%);
+  animation: lg-drift 16s ease-in-out infinite;
+}
+.lg-art::after {
+  width: 420px;
+  height: 420px;
+  bottom: -140px;
+  right: -100px;
+  background: radial-gradient(circle, rgba(52, 214, 193, 0.22), transparent 70%);
+  animation: lg-drift 19s ease-in-out infinite reverse;
+}
+@keyframes lg-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(30px, 24px) scale(1.08); }
+}
+
+.lg-grain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.07;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.lg-brand {
+  position: absolute;
+  top: 34px;
+  left: 40px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+  color: #1a1226;
+}
+.lg-brand svg { width: 22px; height: 22px; color: #1a1226; }
+
+.lg-tagline {
+  position: absolute;
+  left: 40px;
+  bottom: 34px;
+  z-index: 5;
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(26, 18, 38, 0.45);
+}
+
+.lg-stage {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 56px 32px;
+}
+.lg-scene {
+  width: min(96%, 620px);
+  height: auto;
+  overflow: visible;
+}
+
+/* ---------------- the cast ---------------- */
+.lg-actor {
+  animation-duration: 1s;
+  animation-timing-function: cubic-bezier(0.32, 1.5, 0.46, 1);
+  animation-fill-mode: backwards;
+  transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.b-teal  { animation-name: lg-fly-a; animation-delay: 0.05s; }
+.b-coral { animation-name: lg-fly-b; animation-delay: 0.38s; }
+.b-amber { animation-name: lg-fly-c; animation-delay: 0.27s; }
+.b-peri  { animation-name: lg-fly-d; animation-delay: 0.16s; }
+
+@keyframes lg-fly-a {
+  0% { transform: translate(-260px, -300px) rotate(-40deg); opacity: 0; }
+  60% { opacity: 1; }
+  100% { transform: translate(0, 0) rotate(0); opacity: 1; }
+}
+@keyframes lg-fly-b {
+  0% { transform: translate(0, 300px) rotate(-12deg); opacity: 0; }
+  60% { opacity: 1; }
+  100% { transform: translate(0, 0) rotate(0); opacity: 1; }
+}
+@keyframes lg-fly-c {
+  0% { transform: translate(0, -440px) rotate(24deg); opacity: 0; }
+  60% { opacity: 1; }
+  100% { transform: translate(0, 0) rotate(0); opacity: 1; }
+}
+@keyframes lg-fly-d {
+  0% { transform: translate(320px, 200px) rotate(34deg); opacity: 0; }
+  60% { opacity: 1; }
+  100% { transform: translate(0, 0) rotate(0); opacity: 1; }
+}
+
+/* idle breathing (own layer) */
+.lg-bob { animation: lg-breathe 4.4s ease-in-out infinite; }
+.b-coral .lg-bob { animation-duration: 5s; }
+.b-amber .lg-bob { animation-duration: 4.8s; }
+.b-peri  .lg-bob { animation-duration: 5.4s; }
+@keyframes lg-breathe {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+/* lean toward the field you're using (a clear "peek in"),
+   and lean away when the password is exposed */
+.lg-scene.m-email .lg-actor { transform: translate(30px, -8px) rotate(1.5deg); }
+.lg-scene.m-password .lg-actor { transform: translate(30px, 10px) rotate(1.5deg); }
+.lg-scene.is-away .lg-actor { transform: translate(-26px, 0) rotate(-2.5deg); }
+.lg-scene.is-celebrate .lg-actor { transform: translateY(-4px); }
+
+/* ---------------- bodies & trim ---------------- */
+.lg-feet { fill: #211b16; }
+.lg-sheen { fill: rgba(255, 255, 255, 0.2); }
+.lg-hair path {
+  fill: none;
+  stroke: #1b1620;
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+.lg-lenswhite { fill: #eef6fb; }
+.lg-rim { stroke: rgba(0, 0, 0, 0.12); stroke-width: 1.5; }
+
+/* ---------------- eyes (always open except a blink) ---------------- */
+.lg-pupil-dot { fill: #1b1620; }
+.lg-glint { fill: rgba(255, 255, 255, 0.92); }
+.lg-open { transition: opacity 0.16s ease; }
+.lg-closed {
+  fill: none;
+  stroke: #1b1620;
+  stroke-width: 5;
+  stroke-linecap: round;
+  opacity: 0;
+  transition: opacity 0.16s ease;
+}
+.lg-scene.blink .lg-open { opacity: 0; }
+.lg-scene.blink .lg-closed { opacity: 1; }
+
+/* ---------------- mouths ---------------- */
+.m-default, .m-smile, .m-frown { transition: opacity 0.2s ease; }
+.m-smile, .m-frown { opacity: 0; }
+.m-default { opacity: 1; }
+.lg-scene.is-celebrate .m-default { opacity: 0; }
+.lg-scene.is-celebrate .m-smile { opacity: 1; }
+.lg-scene.is-fail .m-default { opacity: 0; }
+.lg-scene.is-fail .m-frown { opacity: 1; }
+
+/* ---------------- fail: head nods "no" (feet stay planted) -------- */
+.lg-head { transform-box: fill-box; transform-origin: 50% 92%; }
+.lg-scene.is-fail .lg-head { animation: lg-nod-no 0.6s ease-in-out 2; }
+.lg-scene.is-fail .b-peri .lg-head  { animation-delay: 0.06s; }
+.lg-scene.is-fail .b-amber .lg-head { animation-delay: 0.12s; }
+.lg-scene.is-fail .b-coral .lg-head { animation-delay: 0.18s; }
+@keyframes lg-nod-no {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-7deg); }
+  50% { transform: rotate(6deg); }
+  75% { transform: rotate(-4deg); }
+}
+
+/* ---------------- celebrate: gentle hop ---------------- */
+.lg-scene.is-celebrate .lg-bob { animation: lg-hop 0.55s ease-in-out 2; }
+.lg-scene.is-celebrate .b-peri .lg-bob  { animation-delay: 0.06s; }
+.lg-scene.is-celebrate .b-amber .lg-bob { animation-delay: 0.12s; }
+.lg-scene.is-celebrate .b-coral .lg-bob { animation-delay: 0.18s; }
+@keyframes lg-hop {
+  0%, 100% { transform: translateY(0); }
+  45% { transform: translateY(-22px); }
+  70% { transform: translateY(0); }
+}
+
+/* ---------------- sparkles (success) ---------------- */
+.lg-spark { opacity: 0; transform-box: fill-box; transform-origin: center; }
+.lg-scene.is-celebrate .lg-spark { animation: lg-twinkle 1.1s ease-in-out infinite; }
+.lg-spark.s1 { animation-delay: 0.15s; }
+.lg-spark.s2 { animation-delay: 0.3s; }
+.lg-spark.s3 { animation-delay: 0.45s; }
+.lg-spark.s4 { animation-delay: 0.6s; }
+@keyframes lg-twinkle {
+  0%, 100% { opacity: 0; transform: scale(0.2) rotate(0deg); }
+  50% { opacity: 0.95; transform: scale(1) rotate(45deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lg-actor, .lg-bob, .lg-head, .lg-art::before, .lg-art::after {
+    animation: none !important;
+    transform: none !important;
+    opacity: 1;
+  }
+}
+
+/* ================= Right: form ================= */
+.lg-form-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  background: linear-gradient(180deg, #ffffff 0%, #fcfbff 100%);
+}
+.lg-form { width: 100%; max-width: 366px; }
+
+.lg-logo { display: flex; justify-content: center; margin-bottom: 22px; }
+.lg-logo svg { width: 34px; height: 34px; color: #1a1226; }
+
+.lg-title {
+  margin: 0;
+  text-align: center;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 2.5rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: #1a1226;
+}
+.lg-subtitle {
+  margin: 10px 0 32px;
+  text-align: center;
+  font-size: 0.9rem;
+  color: #8a8794;
+}
+
+.lg-error {
+  margin-bottom: 18px;
+  border-radius: 14px;
+  background: rgba(220, 38, 38, 0.07);
+  border: 1px solid rgba(220, 38, 38, 0.18);
+  padding: 11px 15px;
+  font-size: 0.82rem;
+  color: #b3261e;
+  animation: lg-err-in 0.35s ease;
+}
+@keyframes lg-err-in {
+  0% { opacity: 0; transform: translateY(-6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.lg-field { margin-bottom: 24px; }
+.lg-label {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #6a6775;
+}
+.lg-input-row { position: relative; }
+.lg-input {
+  width: 100%;
+  border: none;
+  border-bottom: 1.5px solid #ddd9e6;
+  background: transparent;
+  padding: 9px 0;
+  font-size: 1rem;
+  font-family: inherit;
+  color: #1a1226;
+  outline: none;
+}
+.lg-input::placeholder { color: #bdb9c8; }
+.lg-input#login-password { padding-right: 36px; }
+.lg-underline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #7a45ff, #34d6c1);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.lg-input:focus ~ .lg-underline { transform: scaleX(1); }
+
+.lg-toggle {
+  position: absolute;
+  right: 0;
+  top: 8px;
+  display: flex;
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: #9a96a6;
+  transition: color 0.18s ease, transform 0.18s ease;
+}
+.lg-toggle:hover { color: #1a1226; transform: scale(1.08); }
+.lg-toggle svg { width: 20px; height: 20px; }
+
+.lg-btn {
+  position: relative;
+  width: 100%;
+  margin-top: 6px;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #2a2730 0%, #131019 100%);
+  color: #ffffff;
+  padding: 15px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  overflow: hidden;
+  box-shadow: 0 10px 26px rgba(20, 16, 30, 0.22);
+  transition: transform 0.14s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+.lg-btn::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -60%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+  transform: skewX(-18deg);
+  transition: left 0.6s ease;
+}
+.lg-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 32px rgba(20, 16, 30, 0.28);
+}
+.lg-btn:hover:not(:disabled)::after { left: 130%; }
+.lg-btn:active:not(:disabled) { transform: translateY(0); }
+.lg-btn:disabled { cursor: progress; }
+.lg-btn.is-go {
+  background: linear-gradient(180deg, #6d3cf5 0%, #4a16d8 100%);
+  filter: saturate(1.1);
+}
+
+.lg-wake { margin-top: 18px; text-align: center; }
+.lg-wake-btn {
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #a09cac;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.lg-wake-btn:hover:not(:disabled) { color: #1a1226; }
+.lg-wake-btn:disabled { cursor: progress; opacity: 0.7; }
+.lg-wake-status {
+  margin: 8px 0 0;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: #8a8794;
+}
+
+.lg-foot {
+  margin-top: 30px;
+  text-align: center;
+  font-size: 0.86rem;
+  color: #8a8794;
+}
+.lg-foot a {
+  color: #1a1226;
+  font-weight: 700;
+  text-decoration: none;
+  border-bottom: 1.5px solid transparent;
+  transition: border-color 0.18s ease;
+}
+.lg-foot a:hover { border-color: #1a1226; }
+
+/* ---------------- responsive ---------------- */
+@media (max-width: 920px) {
+  .lg-root { grid-template-columns: 1fr; }
+  .lg-art { display: none; }
+  .lg-form-wrap { padding: 28px; }
+}
