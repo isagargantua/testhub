@@ -1,5 +1,6 @@
 const express = require("express");
 const multer = require("multer");
+const archiver = require("archiver");
 
 const { verifyToken, requireRole } = require("../middleware/auth");
 const prisma = require("../utils/prisma");
@@ -35,6 +36,9 @@ const MAX_FILE_BYTES = (Number(process.env.DUMP_MAX_FILE_MB) || 10) * 1024 * 102
 const MAX_FILES = Number(process.env.DUMP_MAX_FILES) || 20;
 const TOTAL_LIMIT_BYTES =
   (Number(process.env.DUMP_TOTAL_LIMIT_MB) || 200) * 1024 * 1024;
+// Cap a single zip request — archiver streams the compressed output, but each
+// source file is pulled into memory as a bytea buffer, so guard against OOM.
+const ZIP_MAX_BYTES = (Number(process.env.DUMP_ZIP_MAX_MB) || 100) * 1024 * 1024;
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -172,6 +176,81 @@ router.post("/", (req, res) => {
       res.status(500).json({ message: "Internal server error" });
     }
   });
+});
+
+// Bundle a selection of items into a single streamed zip.
+router.post("/zip", async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body.ids)
+      ? req.body.ids.filter((id) => typeof id === "string")
+      : [];
+
+    if (ids.length === 0) {
+      return res.status(400).json({ message: "Select at least one item to zip." });
+    }
+
+    // Size guard up front (metadata only, no content fetched yet).
+    const metas = await prisma.dumpItem.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, sizeBytes: true },
+    });
+
+    if (metas.length === 0) {
+      return res.status(404).json({ message: "None of the selected items exist." });
+    }
+
+    const totalBytes = metas.reduce((sum, m) => sum + m.sizeBytes, 0);
+    if (totalBytes > ZIP_MAX_BYTES) {
+      return res.status(413).json({
+        message: `Selection is too large to zip (max ${ZIP_MAX_BYTES / (1024 * 1024)}MB). Pick fewer items.`,
+      });
+    }
+
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="dump-export-${Date.now()}.zip"`
+    );
+
+    const archive = archiver("zip", { zlib: { level: 9 } });
+    archive.on("error", (err) => {
+      console.log(err);
+      res.destroy(err);
+    });
+    archive.pipe(res);
+
+    // Pull each file's bytes one at a time (rather than one big findMany) to
+    // keep peak memory down, and de-duplicate identical filenames so the zip
+    // doesn't silently overwrite entries.
+    const usedNames = new Map();
+    for (const id of ids) {
+      const item = await prisma.dumpItem.findUnique({ where: { id } });
+      if (!item) continue;
+
+      let name = item.filename || `${id}.bin`;
+      const seen = usedNames.get(name) || 0;
+      usedNames.set(name, seen + 1);
+      if (seen > 0) {
+        const dot = name.lastIndexOf(".");
+        name =
+          dot > 0
+            ? `${name.slice(0, dot)} (${seen})${name.slice(dot)}`
+            : `${name} (${seen})`;
+      }
+
+      archive.append(item.content, { name });
+    }
+
+    await archive.finalize();
+  } catch (error) {
+    console.log(error);
+    // Headers may already be sent once piping starts; only send JSON if not.
+    if (!res.headersSent) {
+      res.status(500).json({ message: "Internal server error" });
+    } else {
+      res.destroy(error);
+    }
+  }
 });
 
 // Stream a single item's bytes back as a download.

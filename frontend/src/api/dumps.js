@@ -44,6 +44,23 @@ export async function downloadDump(id, filename) {
   window.URL.revokeObjectURL(url);
 }
 
+export async function downloadDumpsZip(ids) {
+  const response = await client.post(
+    "/api/dumps/zip",
+    { ids },
+    { responseType: "blob" }
+  );
+
+  const url = window.URL.createObjectURL(response.data);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `dump-export-${new Date().toISOString().slice(0, 10)}.zip`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
+
 export async function deleteDump(id) {
   const response = await client.delete(`/api/dumps/${id}`);
 

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   deleteDump,
   downloadDump,
+  downloadDumpsZip,
   getDumps,
   uploadDumps,
 } from "../api/dumps";
@@ -53,6 +54,10 @@ export default function Dump() {
   const [progress, setProgress] = useState(0);
   const [deletingId, setDeletingId] = useState("");
   const fileInputRef = useRef(null);
+
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState(() => new Set());
+  const [zipping, setZipping] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -127,9 +132,68 @@ export default function Dump() {
     }
   }
 
+  function enterSelect() {
+    setSelecting(true);
+    setSelected(new Set());
+    setError("");
+    setFeedback("");
+  }
+
+  function cancelSelect() {
+    setSelecting(false);
+    setSelected(new Set());
+  }
+
+  function toggleOne(id) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    setSelected((prev) =>
+      prev.size === items.length ? new Set() : new Set(items.map((i) => i.id))
+    );
+  }
+
+  async function handleZip() {
+    if (!selected.size) return;
+    try {
+      setZipping(true);
+      setError("");
+      setFeedback("");
+      await downloadDumpsZip([...selected]);
+      setFeedback(`Zipped ${selected.size} item(s).`);
+      cancelSelect();
+    } catch (err) {
+      // With responseType "blob", an error body comes back as a Blob, so the
+      // usual error-message extraction needs the text decoded first.
+      let message = "Could not create the ZIP.";
+      const data = err?.response?.data;
+      if (data instanceof Blob) {
+        try {
+          const parsed = JSON.parse(await data.text());
+          if (parsed.message) message = parsed.message;
+        } catch {
+          /* keep default message */
+        }
+      } else {
+        message = getErrorMessage(err, message);
+      }
+      setError(message);
+    } finally {
+      setZipping(false);
+    }
+  }
+
   const usedPct = usage
     ? Math.min(100, Math.round((usage.usedBytes / usage.limitBytes) * 100))
     : 0;
+  const colCount = selecting ? 6 : 5;
+  const allSelected = items.length > 0 && selected.size === items.length;
 
   return (
     <div className="space-y-6">
@@ -234,10 +298,54 @@ export default function Dump() {
       </div>
 
       <div className="card overflow-hidden">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="text-sm font-semibold text-[#2d241a]">
+            Stored items
+          </div>
+          {selecting ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm text-[#75675a]">
+                {selected.size} selected
+              </span>
+              <button
+                className="btn"
+                disabled={!selected.size || zipping}
+                onClick={handleZip}
+              >
+                {zipping ? "Zipping…" : `Download ${selected.size || ""} as ZIP`}
+              </button>
+              <button
+                className="btn-secondary"
+                disabled={zipping}
+                onClick={cancelSelect}
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              className="btn-secondary"
+              disabled={!items.length}
+              onClick={enterSelect}
+            >
+              Select &amp; download as ZIP
+            </button>
+          )}
+        </div>
         <div className="overflow-x-auto">
           <table className="min-w-full text-left">
             <thead>
               <tr className="border-b border-[rgba(80,67,43,0.08)] text-xs uppercase tracking-[0.18em] text-[#7d6f60]">
+                {selecting && (
+                  <th className="w-10 px-4 py-4 font-semibold">
+                    <input
+                      type="checkbox"
+                      aria-label="Select all"
+                      checked={allSelected}
+                      onChange={toggleAll}
+                    />
+                  </th>
+                )}
                 <th className="px-4 py-4 font-semibold">File</th>
                 <th className="px-4 py-4 font-semibold">Type</th>
                 <th className="px-4 py-4 font-semibold">Size</th>
@@ -248,7 +356,7 @@ export default function Dump() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="5" className="px-4 py-8 text-sm text-[#75675a]">
+                  <td colSpan={colCount} className="px-4 py-8 text-sm text-[#75675a]">
                     Loading vault…
                   </td>
                 </tr>
@@ -258,6 +366,16 @@ export default function Dump() {
                     key={item.id}
                     className="border-b border-[rgba(80,67,43,0.06)] align-top last:border-b-0"
                   >
+                    {selecting && (
+                      <td className="px-4 py-4">
+                        <input
+                          type="checkbox"
+                          aria-label={`Select ${item.filename}`}
+                          checked={selected.has(item.id)}
+                          onChange={() => toggleOne(item.id)}
+                        />
+                      </td>
+                    )}
                     <td className="px-4 py-4">
                       <div className="font-semibold text-[#2d241a] break-all">
                         {item.filename}
@@ -304,7 +422,7 @@ export default function Dump() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="5" className="px-4 py-8 text-sm text-[#75675a]">
+                  <td colSpan={colCount} className="px-4 py-8 text-sm text-[#75675a]">
                     The vault is empty. Upload something above to get started.
                   </td>
                 </tr>
