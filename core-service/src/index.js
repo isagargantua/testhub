@@ -8,6 +8,7 @@ const suitesRoutes = require("./routes/suites");
 const testcasesRoutes = require("./routes/testcases");
 const runsRoutes = require("./routes/runs");
 const dashboardRoutes = require("./routes/dashboard");
+const dumpsRoutes = require("./routes/dumps");
 
 dotenv.config();
 
@@ -30,6 +31,7 @@ app.use("/api/suites", suitesRoutes);
 app.use("/api/testcases", testcasesRoutes);
 app.use("/api/runs", runsRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/dumps", dumpsRoutes);
 
 const PORT = process.env.PORT || 3002;
 

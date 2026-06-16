@@ -100,6 +100,7 @@ app.use(
     "/api/testcases",
     "/api/runs",
     "/api/dashboard",
+    "/api/dumps",
   ],
   createProxyMiddleware({
     ...proxyOptions,

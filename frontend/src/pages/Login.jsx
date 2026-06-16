@@ -436,7 +436,7 @@ function Eye({ cx, cy, r, max, dot = false, bare = false }) {
   );
 }
 
-function Buddy({ cls, grad, x, w, top, eyeY, lenses, hair = 1 }) {
+function Buddy({ cls, grad, x, w, top, eyeY, lenses, hair = 1, hairColors }) {
   const foot = 466;
   const cx = x + w / 2;
   const big = lenses === 1;
@@ -499,13 +499,15 @@ function Buddy({ cls, grad, x, w, top, eyeY, lenses, hair = 1 }) {
             ry={w * 0.26}
           />
 
-          {/* hair */}
+          {/* hair — per-strand colour via hairColors, else inherits the
+              default dark stroke from CSS */}
           <g className="lg-hair">
             {hairs.map((_, i) => {
               const hx = cx + (i - (hair - 1) / 2) * 12;
               return (
                 <path
                   key={i}
+                  stroke={hairColors ? hairColors[i % hairColors.length] : undefined}
                   d={`M ${hx} ${top + 6} q ${i % 2 ? 8 : -8} -14 ${
                     i % 2 ? 3 : -3
                   } -26`}
@@ -565,10 +567,14 @@ function Buddy({ cls, grad, x, w, top, eyeY, lenses, hair = 1 }) {
   );
 }
 
+// Light green + blue strands for the two front-centre buddies (coral & amber),
+// whose hair previously read as a messy single/triple dark tuft.
+const HAIR_GREEN_BLUE = ["#86efac", "#60a5fa"];
+
 const CAST = [
   { cls: "b-teal", grad: "gTeal", x: 71, w: 124, top: 150, eyeY: 232, lenses: 2, hair: 2 },
-  { cls: "b-coral", grad: "gCoral", x: 203, w: 140, top: 300, eyeY: 364, lenses: 1, hair: 1 },
-  { cls: "b-amber", grad: "gAmber", x: 343, w: 120, top: 235, eyeY: 308, lenses: 2, hair: 3 },
+  { cls: "b-coral", grad: "gCoral", x: 203, w: 140, top: 300, eyeY: 364, lenses: 1, hair: 2, hairColors: HAIR_GREEN_BLUE },
+  { cls: "b-amber", grad: "gAmber", x: 343, w: 120, top: 235, eyeY: 308, lenses: 2, hair: 2, hairColors: HAIR_GREEN_BLUE },
   { cls: "b-peri", grad: "gPeri", x: 457, w: 132, top: 200, eyeY: 274, lenses: 1, hair: 2 },
 ];
 

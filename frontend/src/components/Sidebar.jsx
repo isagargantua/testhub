@@ -53,6 +53,13 @@ const ICONS = {
       <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
     </>
   ),
+  dump: icon(
+    <>
+      <path d="M21 8v13H3V8" />
+      <path d="M1 3h22v5H1z" />
+      <path d="M10 12h4" />
+    </>
+  ),
   testcases: icon(
     <>
       <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
@@ -143,6 +150,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }) {
     ...(user?.role === "ADMIN"
       ? [
           { to: "/users",                    label: "Users",    meta: "admin",   icon: "users" },
+          { to: "/dump",                     label: "Data Dump", meta: "storage", icon: "dump"  },
           { href: docsUrl, external: true,   label: "API Docs", meta: "swagger", icon: "docs"  },
         ]
       : []),

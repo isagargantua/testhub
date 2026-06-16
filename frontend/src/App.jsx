@@ -14,6 +14,7 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
 import Users from "./pages/Users";
+import Dump from "./pages/Dump";
 import AllTestCases from "./pages/AllTestCases";
 
 export default function App() {
@@ -40,6 +41,14 @@ export default function App() {
                 element={
                   <ProtectedRoute roles={["ADMIN"]}>
                     <Users />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="dump"
+                element={
+                  <ProtectedRoute roles={["ADMIN"]}>
+                    <Dump />
                   </ProtectedRoute>
                 }
               />

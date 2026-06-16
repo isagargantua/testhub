@@ -128,3 +128,28 @@ enum ResultStatus {
   SKIP
   BLOCKED
 }
+
+// Admin-only "data dump" vault: arbitrary uploaded artefacts (large text
+// files, zipped folders, screenshots, etc.). The raw bytes live in `content`
+// (Postgres bytea). This is deliberately simple/self-contained — see the
+// limitations documented in core-service/src/routes/dumps.js.
+model DumpItem {
+  id           String   @id @default(cuid())
+  filename     String
+  mimeType     String
+  sizeBytes    Int
+  kind         DumpKind @default(OTHER)
+  notes        String?
+  content      Bytes
+  uploadedById String
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+enum DumpKind {
+  TEXT
+  ARCHIVE
+  IMAGE
+  OTHER
+}
