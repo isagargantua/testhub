@@ -3,7 +3,7 @@ import { forwardRef, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
-import { wakeServices } from "../api/warmup";
+import { probeServices, wakeServices } from "../api/warmup";
 import "./Login.css";
 
 function getErrorMessage(error) {
@@ -27,6 +27,27 @@ function getErrorMessage(error) {
   return "Could not log in. Please try again.";
 }
 
+// Lightweight password-strength heuristic (no dependency). Returns 0–5; the UI
+// buckets it into weak / medium / strong to drive the buddies' mood.
+function scorePassword(pw) {
+  if (!pw) return 0;
+  let score = 0;
+  if (pw.length >= 8) score += 1;
+  if (pw.length >= 12) score += 1;
+  if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) score += 1;
+  if (/\d/.test(pw)) score += 1;
+  if (/[^A-Za-z0-9]/.test(pw)) score += 1;
+  return score;
+}
+
+function timeOfDay(hour) {
+  if (hour < 6) return "night";
+  if (hour < 11) return "dawn";
+  if (hour < 17) return "day";
+  if (hour < 20) return "dusk";
+  return "night";
+}
+
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -39,11 +60,19 @@ export default function Login() {
   const [pwFocused, setPwFocused] = useState(false);
   const [pwHover, setPwHover] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [failLevel, setFailLevel] = useState(0);
   const [celebrate, setCelebrate] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [waking, setWaking] = useState(false);
   const [wakeStatus, setWakeStatus] = useState("");
+
+  // New "alive" states.
+  const [asleep, setAsleep] = useState(false); // services sleeping (probed)
+  const [woke, setWoke] = useState(false); // one-shot wake-up stretch
+  const [idle, setIdle] = useState(false); // user inactive a while
+  const [capsOn, setCapsOn] = useState(false);
+  const [tod] = useState(() => timeOfDay(new Date().getHours()));
 
   const sceneRef = useRef(null);
   const emailRef = useRef(null);
@@ -52,6 +81,11 @@ export default function Login() {
 
   const emailActive = emailFocused || emailHover;
   const pwActive = pwFocused || pwHover;
+  const interacting = emailActive || pwActive;
+
+  // Buddies nap when the backend is asleep AND the user has gone quiet — but
+  // never while interacting, failing, or celebrating.
+  const sleeping = asleep && idle && !interacting && !celebrate && !failed;
 
   // Where the buddies look / how they feel (success + fail win over the rest).
   const mode = celebrate
@@ -66,10 +100,25 @@ export default function Login() {
     ? "email" // peek at the email field
     : "cursor";
 
-  // ---- smooth eased pupil tracking ----
+  // Password-strength mood only applies while peeking at a hidden password.
+  const strength = mode === "password" ? scorePassword(password) : -1;
+  const strengthClass =
+    strength < 0
+      ? ""
+      : strength <= 1
+      ? "pw-weak"
+      : strength <= 3
+      ? "pw-med"
+      : "pw-strong";
+
+  // ---- pupil tracking (spring), parallax, blink + wink ----
   useEffect(() => {
     const scene = sceneRef.current;
     if (!scene) return;
+
+    const reduce = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
 
     const pupils = [...scene.querySelectorAll(".lg-pupil")].map((g) => {
       const eye = g.closest(".lg-eye");
@@ -81,8 +130,12 @@ export default function Login() {
         curY: 0,
         tgX: 0,
         tgY: 0,
+        vX: 0,
+        vY: 0,
       };
     });
+    const depthEls = [...scene.querySelectorAll(".lg-depth")];
+    const eyes = [...scene.querySelectorAll(".lg-eye")];
 
     function setTargets(tx, ty) {
       pupils.forEach((p) => {
@@ -108,8 +161,16 @@ export default function Login() {
     let raf = 0;
     function loop() {
       pupils.forEach((p) => {
-        p.curX += (p.tgX - p.curX) * 0.16;
-        p.curY += (p.tgY - p.curY) * 0.16;
+        if (reduce) {
+          p.curX = p.tgX;
+          p.curY = p.tgY;
+        } else {
+          // Light spring so the eyes overshoot a touch and settle — googly.
+          p.vX = (p.vX + (p.tgX - p.curX) * 0.12) * 0.78;
+          p.vY = (p.vY + (p.tgY - p.curY) * 0.12) * 0.78;
+          p.curX += p.vX;
+          p.curY += p.vY;
+        }
         p.g.setAttribute(
           "transform",
           `translate(${p.curX.toFixed(2)} ${p.curY.toFixed(2)})`
@@ -123,14 +184,41 @@ export default function Login() {
       lastMouse.current = { x: e.clientX, y: e.clientY };
       if (sceneRef.current?.dataset.mode === "cursor")
         setTargets(e.clientX, e.clientY);
+
+      // Parallax depth: shift each buddy opposite the cursor, front ones more.
+      if (!reduce && depthEls.length) {
+        const r = scene.getBoundingClientRect();
+        const dx = Math.max(
+          -1,
+          Math.min(1, (e.clientX - (r.left + r.width / 2)) / (r.width / 2))
+        );
+        const dy = Math.max(
+          -1,
+          Math.min(1, (e.clientY - (r.top + r.height / 2)) / (r.height / 2))
+        );
+        depthEls.forEach((el) => {
+          const d = Number(el.dataset.depth) || 0;
+          el.setAttribute(
+            "transform",
+            `translate(${(-dx * d * 14).toFixed(2)} ${(-dy * d * 8).toFixed(2)})`
+          );
+        });
+      }
     }
     window.addEventListener("mousemove", onMove);
 
     let blinkTimer = 0;
     function scheduleBlink() {
       blinkTimer = window.setTimeout(() => {
-        scene.classList.add("blink");
-        window.setTimeout(() => scene.classList.remove("blink"), 150);
+        // ~1 in 3 "blinks" is actually a single-eye wink from one buddy.
+        if (Math.random() < 0.32 && eyes.length) {
+          const eye = eyes[Math.floor(Math.random() * eyes.length)];
+          eye.classList.add("winking");
+          window.setTimeout(() => eye.classList.remove("winking"), 220);
+        } else {
+          scene.classList.add("blink");
+          window.setTimeout(() => scene.classList.remove("blink"), 150);
+        }
         scheduleBlink();
       }, 2600 + Math.random() * 3200);
     }
@@ -203,6 +291,87 @@ export default function Login() {
     }
   }, [email, password]);
 
+  // Probe whether the free-tier backend is awake; if asleep, the buddies nap.
+  useEffect(() => {
+    let cancelled = false;
+    probeServices({ timeoutMs: 8000 })
+      .then(({ allAwake }) => {
+        if (!cancelled) setAsleep(!allAwake);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Track activity so we know when the user has gone quiet (drives naps + idle
+  // micro-behaviors).
+  useEffect(() => {
+    let timer = 0;
+    const markActive = () => {
+      setIdle(false);
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => setIdle(true), 8000);
+    };
+    const events = ["mousemove", "keydown", "mousedown", "touchstart"];
+    events.forEach((e) =>
+      window.addEventListener(e, markActive, { passive: true })
+    );
+    markActive();
+    return () => {
+      window.clearTimeout(timer);
+      events.forEach((e) => window.removeEventListener(e, markActive));
+    };
+  }, []);
+
+  // Caps-Lock detection so the buddies can look alarmed (and we can warn).
+  useEffect(() => {
+    const onKey = (e) => {
+      if (typeof e.getModifierState === "function") {
+        setCapsOn(e.getModifierState("CapsLock"));
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("keyup", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("keyup", onKey);
+    };
+  }, []);
+
+  // Idle micro-behaviors: when awake but bored, a buddy yawns or glances around.
+  useEffect(() => {
+    const scene = sceneRef.current;
+    if (!scene || !idle || sleeping) return;
+
+    const actors = [...scene.querySelectorAll(".lg-actor")];
+    const id = window.setInterval(() => {
+      if (Math.random() < 0.5 && actors.length) {
+        const a = actors[Math.floor(Math.random() * actors.length)];
+        a.classList.add("yawning");
+        window.setTimeout(() => a.classList.remove("yawning"), 1400);
+      } else if (scene.__setTargets) {
+        const r = scene.getBoundingClientRect();
+        const side = Math.random() < 0.5 ? -1 : 1;
+        scene.__setTargets(r.left + r.width / 2 + side * 300, r.top + r.height * 0.4);
+        window.setTimeout(() => {
+          if (scene.__aimAhead && sceneRef.current?.dataset.mode === "cursor")
+            scene.__aimAhead();
+        }, 900);
+      }
+    }, 3500);
+
+    return () => window.clearInterval(id);
+  }, [idle, sleeping]);
+
+  function handleBoop(e) {
+    const actor = e.currentTarget;
+    actor.classList.remove("booped");
+    void actor.getBoundingClientRect(); // restart the animation if mid-boop
+    actor.classList.add("booped");
+    window.setTimeout(() => actor.classList.remove("booped"), 620);
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     try {
@@ -210,12 +379,14 @@ export default function Login() {
       setFailed(false);
       setSubmitting(true);
       await login(email.trim(), password);
+      setFailLevel(0);
       setCelebrate(true);
       window.setTimeout(() => navigate("/"), 850);
     } catch (err) {
       setError(getErrorMessage(err));
+      setFailLevel((level) => level + 1);
       setFailed(true);
-      window.setTimeout(() => setFailed(false), 1500);
+      window.setTimeout(() => setFailed(false), 1800);
     } finally {
       setSubmitting(false);
     }
@@ -231,7 +402,11 @@ export default function Login() {
         await wakeServices();
       if (allAwake) {
         setWakeStatus("✅ All services are awake. You can sign in now.");
+        setAsleep(false);
+        setWoke(true);
+        window.setTimeout(() => setWoke(false), 1000);
       } else {
+        setAsleep(true);
         const stillDown = [
           !gatewayAwake && "gateway",
           !authAwake && "auth",
@@ -257,13 +432,18 @@ export default function Login() {
     mode === "away" ? "is-away" : "",
     mode === "fail" ? "is-fail" : "",
     mode === "celebrate" ? "is-celebrate" : "",
+    sleeping ? "is-sleeping" : "",
+    woke ? "is-waking" : "",
+    pwActive && capsOn ? "is-caps" : "",
+    failed && failLevel >= 2 ? "is-facepalm" : "",
+    strengthClass,
   ]
     .filter(Boolean)
     .join(" ");
 
   return (
     <div className="lg-root">
-      <div className="lg-art">
+      <div className={`lg-art tod-${tod}`}>
         <div className="lg-grain" aria-hidden="true" />
         <div className="lg-brand">
           <Spark />
@@ -271,7 +451,7 @@ export default function Login() {
         </div>
 
         <div className="lg-stage" aria-hidden="true">
-          <Scene ref={sceneRef} className={sceneClass} />
+          <Scene ref={sceneRef} className={sceneClass} onBoop={handleBoop} />
         </div>
 
         <p className="lg-tagline" aria-hidden="true">
@@ -355,6 +535,11 @@ export default function Login() {
                   {showPassword ? <EyeOff /> : <EyeIcon />}
                 </button>
               </div>
+              {pwActive && capsOn && (
+                <p className="lg-caps-hint" role="status" data-testid="caps-hint">
+                  ⇪ Caps Lock is on
+                </p>
+              )}
             </div>
 
             <button
@@ -406,8 +591,9 @@ export default function Login() {
    Original goggle-buddies — four capsule mascots, hand-built in
    SVG. (Not the trademarked Minions; distinct colours, goggles
    and proportions.) Layered groups keep motion independent:
-   .lg-actor (entrance + lean) › .lg-bob (breathe) › .lg-head
-   (nods "no" on a failed login, feet stay planted).
+   .lg-depth (mouse parallax) › .lg-actor (entrance + lean) ›
+   .lg-bob (breathe/boop) › .lg-head (nods "no" on a failed login,
+   feet stay planted).
    ============================================================ */
 
 function Eye({ cx, cy, r, max, dot = false, bare = false }) {
@@ -436,7 +622,19 @@ function Eye({ cx, cy, r, max, dot = false, bare = false }) {
   );
 }
 
-function Buddy({ cls, grad, x, w, top, eyeY, lenses, hair = 1, hairColors }) {
+function Buddy({
+  cls,
+  grad,
+  x,
+  w,
+  top,
+  eyeY,
+  lenses,
+  hair = 1,
+  hairColors,
+  depth = 0,
+  onBoop,
+}) {
   const foot = 466;
   const cx = x + w / 2;
   const big = lenses === 1;
@@ -455,111 +653,121 @@ function Buddy({ cls, grad, x, w, top, eyeY, lenses, hair = 1, hairColors }) {
   const hairs = Array.from({ length: hair });
 
   return (
-    <g className={`lg-actor ${cls}`}>
-      <g className="lg-bob">
-        {/* feet stay planted while the head nods */}
-        <ellipse className="lg-feet" cx={cx - w * 0.2} cy={foot + 6} rx={w * 0.17} ry={11} />
-        <ellipse className="lg-feet" cx={cx + w * 0.2} cy={foot + 6} rx={w * 0.17} ry={11} />
+    <g className="lg-depth" data-depth={depth}>
+      <g className={`lg-actor ${cls}`} onClick={onBoop} role="presentation">
+        <g className="lg-bob">
+          {/* feet stay planted while the head nods */}
+          <ellipse className="lg-feet" cx={cx - w * 0.2} cy={foot + 6} rx={w * 0.17} ry={11} />
+          <ellipse className="lg-feet" cx={cx + w * 0.2} cy={foot + 6} rx={w * 0.17} ry={11} />
 
-        <g className="lg-head">
-          {/* arms */}
-          <path
-            className="lg-arm lg-arm-l"
-            d={`M ${x + 12} ${armY} q -16 12 -12 42`}
-            fill="none"
-            stroke={`url(#${grad})`}
-            strokeWidth="18"
-            strokeLinecap="round"
-          />
-          <path
-            className="lg-arm lg-arm-r"
-            d={`M ${x + w - 12} ${armY} q 16 12 12 42`}
-            fill="none"
-            stroke={`url(#${grad})`}
-            strokeWidth="18"
-            strokeLinecap="round"
-          />
+          <g className="lg-head">
+            {/* arms */}
+            <path
+              className="lg-arm lg-arm-l"
+              d={`M ${x + 12} ${armY} q -16 12 -12 42`}
+              fill="none"
+              stroke={`url(#${grad})`}
+              strokeWidth="18"
+              strokeLinecap="round"
+            />
+            <path
+              className="lg-arm lg-arm-r"
+              d={`M ${x + w - 12} ${armY} q 16 12 12 42`}
+              fill="none"
+              stroke={`url(#${grad})`}
+              strokeWidth="18"
+              strokeLinecap="round"
+            />
 
-          {/* body */}
-          <rect
-            className="lg-body"
-            x={x}
-            y={top}
-            width={w}
-            height={foot - top}
-            rx={w / 2}
-            fill={`url(#${grad})`}
-            filter="url(#lgSoft)"
-          />
-          <ellipse
-            className="lg-sheen"
-            cx={cx - w * 0.2}
-            cy={top + w * 0.42}
-            rx={w * 0.15}
-            ry={w * 0.26}
-          />
+            {/* body */}
+            <rect
+              className="lg-body"
+              x={x}
+              y={top}
+              width={w}
+              height={foot - top}
+              rx={w / 2}
+              fill={`url(#${grad})`}
+              filter="url(#lgSoft)"
+            />
+            <ellipse
+              className="lg-sheen"
+              cx={cx - w * 0.2}
+              cy={top + w * 0.42}
+              rx={w * 0.15}
+              ry={w * 0.26}
+            />
 
-          {/* hair — per-strand colour via hairColors, else inherits the
-              default dark stroke from CSS */}
-          <g className="lg-hair">
-            {hairs.map((_, i) => {
-              const hx = cx + (i - (hair - 1) / 2) * 12;
-              return (
-                <path
-                  key={i}
-                  stroke={hairColors ? hairColors[i % hairColors.length] : undefined}
-                  d={`M ${hx} ${top + 6} q ${i % 2 ? 8 : -8} -14 ${
-                    i % 2 ? 3 : -3
-                  } -26`}
-                />
-              );
-            })}
-          </g>
-
-          {/* goggle strap */}
-          <rect
-            className="lg-strap"
-            x={x - 7}
-            y={eyeY - rimR + 2}
-            width={w + 14}
-            height={rimR * 2 - 6}
-            rx={rimR - 4}
-            fill="url(#gStrap)"
-          />
-
-          {/* lenses + eyes */}
-          {centers.map(([lx, ly], i) => (
-            <g className="lg-lens" key={i}>
-              <circle className="lg-rim" cx={lx} cy={ly} r={rimR} fill="url(#gChrome)" />
-              <circle className="lg-lenswhite" cx={lx} cy={ly} r={lensR} />
-              <Eye cx={lx} cy={ly} r={lensR} max={max} bare />
+            {/* hair — per-strand colour via hairColors, else inherits the
+                default dark stroke from CSS */}
+            <g className="lg-hair">
+              {hairs.map((_, i) => {
+                const hx = cx + (i - (hair - 1) / 2) * 12;
+                return (
+                  <path
+                    key={i}
+                    stroke={hairColors ? hairColors[i % hairColors.length] : undefined}
+                    d={`M ${hx} ${top + 6} q ${i % 2 ? 8 : -8} -14 ${
+                      i % 2 ? 3 : -3
+                    } -26`}
+                  />
+                );
+              })}
             </g>
-          ))}
 
-          {/* mouth */}
-          <g className="lg-mouth">
-            <path
-              className="m-default"
-              d={`M ${cx - 12} ${mouthY} q 12 9 24 0`}
-              fill="none"
-              stroke="#2a1d16"
-              strokeWidth="5"
-              strokeLinecap="round"
+            {/* goggle strap */}
+            <rect
+              className="lg-strap"
+              x={x - 7}
+              y={eyeY - rimR + 2}
+              width={w + 14}
+              height={rimR * 2 - 6}
+              rx={rimR - 4}
+              fill="url(#gStrap)"
             />
-            <path
-              className="m-smile"
-              d={`M ${cx - 15} ${mouthY} q 15 17 30 0 q -15 9 -30 0 Z`}
-              fill="#2a1d16"
-              stroke="none"
-            />
-            <path
-              className="m-frown"
-              d={`M ${cx - 12} ${mouthY + 5} q 12 -9 24 0`}
-              fill="none"
-              stroke="#2a1d16"
-              strokeWidth="5"
-              strokeLinecap="round"
-            />
+
+            {/* lenses + eyes */}
+            {centers.map(([lx, ly], i) => (
+              <g className="lg-lens" key={i}>
+                <circle className="lg-rim" cx={lx} cy={ly} r={rimR} fill="url(#gChrome)" />
+                <circle className="lg-lenswhite" cx={lx} cy={ly} r={lensR} />
+                <Eye cx={lx} cy={ly} r={lensR} max={max} bare />
+              </g>
+            ))}
+
+            {/* mouth */}
+            <g className="lg-mouth">
+              <path
+                className="m-default"
+                d={`M ${cx - 12} ${mouthY} q 12 9 24 0`}
+                fill="none"
+                stroke="#2a1d16"
+                strokeWidth="5"
+                strokeLinecap="round"
+              />
+              <path
+                className="m-smile"
+                d={`M ${cx - 15} ${mouthY} q 15 17 30 0 q -15 9 -30 0 Z`}
+                fill="#2a1d16"
+                stroke="none"
+              />
+              <path
+                className="m-frown"
+                d={`M ${cx - 12} ${mouthY + 5} q 12 -9 24 0`}
+                fill="none"
+                stroke="#2a1d16"
+                strokeWidth="5"
+                strokeLinecap="round"
+              />
+              <ellipse
+                className="m-yawn"
+                cx={cx}
+                cy={mouthY + 2}
+                rx="7"
+                ry="9"
+                fill="#2a1d16"
+              />
+            </g>
           </g>
         </g>
       </g>
@@ -572,13 +780,13 @@ function Buddy({ cls, grad, x, w, top, eyeY, lenses, hair = 1, hairColors }) {
 const HAIR_GREEN_BLUE = ["#86efac", "#60a5fa"];
 
 const CAST = [
-  { cls: "b-teal", grad: "gTeal", x: 71, w: 124, top: 150, eyeY: 232, lenses: 2, hair: 2 },
-  { cls: "b-coral", grad: "gCoral", x: 203, w: 140, top: 300, eyeY: 364, lenses: 1, hair: 2, hairColors: HAIR_GREEN_BLUE },
-  { cls: "b-amber", grad: "gAmber", x: 343, w: 120, top: 235, eyeY: 308, lenses: 2, hair: 2, hairColors: HAIR_GREEN_BLUE },
-  { cls: "b-peri", grad: "gPeri", x: 457, w: 132, top: 200, eyeY: 274, lenses: 1, hair: 2 },
+  { cls: "b-teal", grad: "gTeal", x: 71, w: 124, top: 150, eyeY: 232, lenses: 2, hair: 2, depth: 0.35 },
+  { cls: "b-coral", grad: "gCoral", x: 203, w: 140, top: 300, eyeY: 364, lenses: 1, hair: 2, hairColors: HAIR_GREEN_BLUE, depth: 1 },
+  { cls: "b-amber", grad: "gAmber", x: 343, w: 120, top: 235, eyeY: 308, lenses: 2, hair: 2, hairColors: HAIR_GREEN_BLUE, depth: 0.8 },
+  { cls: "b-peri", grad: "gPeri", x: 457, w: 132, top: 200, eyeY: 274, lenses: 1, hair: 2, depth: 0.55 },
 ];
 
-const Scene = forwardRef(function Scene({ className = "" }, ref) {
+const Scene = forwardRef(function Scene({ className = "", onBoop }, ref) {
   return (
     <svg
       ref={ref}
@@ -634,10 +842,17 @@ const Scene = forwardRef(function Scene({ className = "" }, ref) {
       </g>
 
       {/* back to front */}
-      <Buddy {...CAST[0]} />
-      <Buddy {...CAST[3]} />
-      <Buddy {...CAST[2]} />
-      <Buddy {...CAST[1]} />
+      <Buddy {...CAST[0]} onBoop={onBoop} />
+      <Buddy {...CAST[3]} onBoop={onBoop} />
+      <Buddy {...CAST[2]} onBoop={onBoop} />
+      <Buddy {...CAST[1]} onBoop={onBoop} />
+
+      {/* sleepy Zzz (shown only while napping) */}
+      <g className="lg-zzz" aria-hidden="true">
+        <text className="z z0" x="150" y="150" fontSize="22">z</text>
+        <text className="z z1" x="166" y="134" fontSize="28">z</text>
+        <text className="z z2" x="186" y="116" fontSize="34">z</text>
+      </g>
 
       <g className="lg-sparkles">
         {[

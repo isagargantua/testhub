@@ -179,8 +179,8 @@
 .lg-scene.blink .lg-closed { opacity: 1; }
 
 /* ---------------- mouths ---------------- */
-.m-default, .m-smile, .m-frown { transition: opacity 0.2s ease; }
-.m-smile, .m-frown { opacity: 0; }
+.m-default, .m-smile, .m-frown, .m-yawn { transition: opacity 0.2s ease; }
+.m-smile, .m-frown, .m-yawn { opacity: 0; }
 .m-default { opacity: 1; }
 .lg-scene.is-celebrate .m-default { opacity: 0; }
 .lg-scene.is-celebrate .m-smile { opacity: 1; }
@@ -224,11 +224,13 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .lg-actor, .lg-bob, .lg-head, .lg-art::before, .lg-art::after {
+  .lg-actor, .lg-bob, .lg-head, .lg-art::before, .lg-art::after,
+  .lg-depth, .lg-zzz .z {
     animation: none !important;
     transform: none !important;
     opacity: 1;
   }
+  .lg-zzz { opacity: 0 !important; }
 }
 
 /* ================= Right: form ================= */
@@ -408,4 +410,117 @@
   .lg-root { grid-template-columns: 1fr; }
   .lg-art { display: none; }
   .lg-form-wrap { padding: 28px; }
+}
+
+/* ============================================================
+   "Alive" extras — sleepy/health, caps alarm, click-to-boop,
+   idle yawns, fail facepalm, pupil spring (JS), parallax (JS),
+   wink, password-strength mood, and time-of-day tints.
+   Ordered AFTER the base state rules so mood/facepalm win.
+   ============================================================ */
+
+/* buddies are clickable (boop) */
+.lg-actor { cursor: pointer; }
+.lg-depth { will-change: transform; }
+
+/* establish a stable transform box so scale/squish pivots at the feet */
+.lg-bob { transform-box: fill-box; transform-origin: 50% 100%; }
+.lg-pupil-dot { transform-box: fill-box; transform-origin: center; transition: transform 0.18s ease; }
+.lg-arm-r { transform-box: fill-box; transform-origin: 0% 0%; }
+
+/* ---- click-to-boop: a springy squish + flash of a smile ---- */
+.lg-actor.booped .lg-bob { animation: lg-boop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
+@keyframes lg-boop {
+  0% { transform: translateY(0) scale(1, 1); }
+  30% { transform: translateY(5px) scale(1.12, 0.86); }
+  60% { transform: translateY(-9px) scale(0.94, 1.08); }
+  100% { transform: translateY(0) scale(1, 1); }
+}
+.lg-actor.booped .m-default { opacity: 0; }
+.lg-actor.booped .m-smile { opacity: 1; }
+
+/* ---- wink: close just one eye ---- */
+.lg-eye.winking .lg-open { opacity: 0; }
+.lg-eye.winking .lg-closed { opacity: 1; }
+
+/* ---- caps lock: shocked wide pupils ---- */
+.lg-scene.is-caps .lg-pupil-dot { transform: scale(1.4); }
+
+/* ---- idle yawn: open mouth + a little head stretch ---- */
+.lg-actor.yawning .m-default { opacity: 0; }
+.lg-actor.yawning .m-yawn { opacity: 1; }
+.lg-actor.yawning .lg-head { animation: lg-yawn 1.4s ease-in-out; }
+@keyframes lg-yawn {
+  0%, 100% { transform: rotate(0); }
+  30% { transform: translateY(-4px) rotate(-3deg); }
+  60% { transform: translateY(-2px) rotate(2deg); }
+}
+
+/* ---- password-strength mood (only while peeking at a hidden password) ---- */
+.lg-scene.pw-weak.m-password .m-default { opacity: 0; }
+.lg-scene.pw-weak.m-password .m-frown { opacity: 1; }
+.lg-scene.pw-strong.m-password .m-default { opacity: 0; }
+.lg-scene.pw-strong.m-password .m-smile { opacity: 1; }
+
+/* ---- repeated-fail facepalm (overrides the single-fail head shake) ---- */
+.lg-scene.is-facepalm .lg-head { animation: lg-droop 0.9s ease-in-out both; }
+.lg-scene.is-facepalm .lg-arm-r { animation: lg-facepalm-arm 0.9s ease-in-out both; }
+@keyframes lg-droop {
+  0% { transform: rotate(0) translateY(0); }
+  35% { transform: rotate(-2deg) translateY(5px); }
+  100% { transform: rotate(0) translateY(4px); }
+}
+@keyframes lg-facepalm-arm {
+  0% { transform: rotate(0); }
+  100% { transform: rotate(-48deg); }
+}
+
+/* ---- sleepy buddies (services asleep + user idle) ---- */
+.lg-scene.is-sleeping .lg-open { opacity: 0; }
+.lg-scene.is-sleeping .lg-closed { opacity: 1; }
+.lg-scene.is-sleeping .lg-bob { animation-duration: 7s; }
+
+.lg-zzz { opacity: 0; transition: opacity 0.4s ease; }
+.lg-zzz text {
+  font-family: "Fraunces", Georgia, serif;
+  font-weight: 700;
+  fill: #8b83bf;
+}
+.lg-zzz .z { transform-box: fill-box; transform-origin: center; }
+.lg-scene.is-sleeping .lg-zzz { opacity: 1; }
+.lg-scene.is-sleeping .lg-zzz .z { animation: lg-zfloat 3s ease-in-out infinite; }
+.lg-zzz .z1 { animation-delay: 0.6s; }
+.lg-zzz .z2 { animation-delay: 1.2s; }
+@keyframes lg-zfloat {
+  0% { opacity: 0; transform: translateY(6px) scale(0.8); }
+  25% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-18px) scale(1.15); }
+}
+
+/* ---- one-shot wake-up stretch ---- */
+.lg-scene.is-waking .lg-bob { animation: lg-stretch 0.9s ease-out; }
+@keyframes lg-stretch {
+  0% { transform: scale(1, 1) translateY(0); }
+  40% { transform: scale(0.92, 1.12) translateY(-6px); }
+  100% { transform: scale(1, 1) translateY(0); }
+}
+
+/* ---- caps-lock hint by the password field ---- */
+.lg-caps-hint {
+  margin: 8px 0 0;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #b8860b;
+  animation: lg-err-in 0.25s ease;
+}
+
+/* ---- time-of-day tints on the art panel (subtle) ---- */
+.lg-art.tod-dawn {
+  background: radial-gradient(130% 90% at 28% 6%, #fdeede 0%, #f4e9ec 46%, #ece3ea 100%);
+}
+.lg-art.tod-dusk {
+  background: radial-gradient(130% 90% at 28% 6%, #efe6fb 0%, #e7e0f3 46%, #ddd9ec 100%);
+}
+.lg-art.tod-night {
+  background: radial-gradient(130% 90% at 28% 6%, #e3e2f4 0%, #d6d6ea 46%, #cccce2 100%);
 }
