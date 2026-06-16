@@ -67,7 +67,7 @@ export default function Dump() {
       setItems(data.items);
       setUsage(data.usage);
     } catch (err) {
-      setError(getErrorMessage(err, "Could not load the dump vault right now."));
+      setError(getErrorMessage(err, "Could not load file storage right now."));
     } finally {
       setLoading(false);
     }
@@ -200,9 +200,9 @@ export default function Dump() {
       <div className="page-heading">
         <div>
           <div className="eyebrow">Admin · Storage</div>
-          <h1 className="display-title mt-2 text-4xl md:text-5xl">Data Dump</h1>
+          <h1 className="display-title mt-2 text-4xl md:text-5xl">File Storage</h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-[#75675a] md:text-base">
-            A private vault for admins to stash arbitrary artefacts — large text
+            A private space for admins to store arbitrary artefacts — large text
             files, zipped folders, screenshots and more. Upload, download, and
             clean up below.
           </p>
@@ -227,7 +227,7 @@ export default function Dump() {
       {usage && (
         <div className="card">
           <div className="flex items-center justify-between text-sm">
-            <span className="font-semibold text-[#2d241a]">Vault usage</span>
+            <span className="font-semibold text-[#2d241a]">Storage usage</span>
             <span className="text-[#75675a]">
               {formatBytes(usage.usedBytes)} of {formatBytes(usage.limitBytes)} (
               {usedPct}%)
@@ -281,7 +281,7 @@ export default function Dump() {
           )}
 
           <button className="btn" disabled={uploading}>
-            {uploading ? `Uploading… ${progress}%` : "Upload to vault"}
+            {uploading ? `Uploading… ${progress}%` : "Upload files"}
           </button>
         </form>
 
@@ -357,7 +357,7 @@ export default function Dump() {
               {loading ? (
                 <tr>
                   <td colSpan={colCount} className="px-4 py-8 text-sm text-[#75675a]">
-                    Loading vault…
+                    Loading files…
                   </td>
                 </tr>
               ) : items.length ? (
@@ -423,7 +423,7 @@ export default function Dump() {
               ) : (
                 <tr>
                   <td colSpan={colCount} className="px-4 py-8 text-sm text-[#75675a]">
-                    The vault is empty. Upload something above to get started.
+                    No files yet. Upload something above to get started.
                   </td>
                 </tr>
               )}

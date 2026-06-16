@@ -150,7 +150,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }) {
     ...(user?.role === "ADMIN"
       ? [
           { to: "/users",                    label: "Users",    meta: "admin",   icon: "users" },
-          { to: "/dump",                     label: "Data Dump", meta: "storage", icon: "dump"  },
+          { to: "/dump",                     label: "File Storage", meta: "storage", icon: "dump"  },
           { href: docsUrl, external: true,   label: "API Docs", meta: "swagger", icon: "docs"  },
         ]
       : []),
