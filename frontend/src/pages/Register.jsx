@@ -3,6 +3,7 @@ import { useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
+import { wakeServices } from "../api/warmup";
 import MascotStage, {
   EyeIcon,
   EyeOff,
@@ -39,6 +40,7 @@ export default function Register() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [focusedField, setFocusedField] = useState(null);
   const [hoveredField, setHoveredField] = useState(null);
   const [failed, setFailed] = useState(false);
@@ -46,6 +48,9 @@ export default function Register() {
   const [celebrate, setCelebrate] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [waking, setWaking] = useState(false);
+  const [wakeStatus, setWakeStatus] = useState("");
+  const [wokeSignal, setWokeSignal] = useState(0);
 
   const nameRef = useRef(null);
   const emailRef = useRef(null);
@@ -65,17 +70,23 @@ export default function Register() {
   const mismatch =
     confirmPassword.length > 0 && password !== confirmPassword;
 
+  const refs = { name: nameRef, email: emailRef, password: pwRef, confirm: confirmRef };
+  const values = { name, email, password, confirm: confirmPassword };
+
+  // Look away when a revealed password is on screen — in either secret field.
+  const revealedSecret =
+    (activeField === "password" && showPassword) ||
+    (activeField === "confirm" && showConfirm);
+
   const mode = celebrate
     ? "celebrate"
     : failed
     ? "fail"
-    : activeField === "password" && showPassword
+    : revealedSecret
     ? "away"
     : activeField || "cursor";
 
-  const refs = { name: nameRef, email: emailRef, password: pwRef, confirm: confirmRef };
-  const values = { name, email, password, confirm: confirmPassword };
-  const watchRef = mode === "away" ? pwRef : refs[activeField] || null;
+  const watchRef = refs[activeField] || null;
   const watchKey = values[activeField] || "";
   const strengthClass =
     mode === "password" && password.length > 0
@@ -115,6 +126,38 @@ export default function Register() {
     }
   }
 
+  async function handleWake() {
+    setWaking(true);
+    setWakeStatus(
+      "Waking gateway, auth and core services… this can take up to ~90 seconds on the free tier. Please keep this page open."
+    );
+    try {
+      const { allAwake, gatewayAwake, authAwake, coreAwake } =
+        await wakeServices();
+      if (allAwake) {
+        setWakeStatus("✅ All services are awake. You can sign up now.");
+        setWokeSignal((n) => n + 1);
+      } else {
+        const stillDown = [
+          !gatewayAwake && "gateway",
+          !authAwake && "auth",
+          !coreAwake && "core",
+        ]
+          .filter(Boolean)
+          .join(", ");
+        setWakeStatus(
+          `Still starting: ${stillDown}. Please wait ~20–30 seconds, then click "Wake them" again.`
+        );
+      }
+    } catch {
+      setWakeStatus(
+        'Could not confirm services are up. Please wait ~30 seconds and click "Wake them" again.'
+      );
+    } finally {
+      setWaking(false);
+    }
+  }
+
   const fieldHandlers = (field) => ({
     onFocus: () => setFocusedField(field),
     onBlur: () => setFocusedField((f) => (f === field ? null : f)),
@@ -136,11 +179,16 @@ export default function Register() {
         capsActive={capsActive}
         strengthClass={strengthClass}
         worried={mismatch && !celebrate && !failed}
+        wokeSignal={wokeSignal}
         tagline="Set up your QA workspace in minutes."
       />
 
       <div className="lg-form-wrap">
         <div className="lg-form">
+          <Link to="/login" className="lg-back">
+            <span aria-hidden="true">←</span> Back to sign in
+          </Link>
+
           <div className="lg-logo">
             <Spark />
           </div>
@@ -240,7 +288,7 @@ export default function Register() {
                 <input
                   id="register-confirm"
                   ref={confirmRef}
-                  type={showPassword ? "text" : "password"}
+                  type={showConfirm ? "text" : "password"}
                   className="lg-input"
                   data-testid="register-confirm"
                   value={confirmPassword}
@@ -250,6 +298,15 @@ export default function Register() {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                 />
                 <span className="lg-underline" />
+                <button
+                  type="button"
+                  className="lg-toggle"
+                  aria-label={showConfirm ? "Hide password" : "Show password"}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => setShowConfirm((v) => !v)}
+                >
+                  {showConfirm ? <EyeOff /> : <EyeIcon />}
+                </button>
               </div>
               {mismatch && (
                 <p className="lg-caps-hint" role="status">
@@ -277,6 +334,27 @@ export default function Register() {
               </span>
             </button>
           </form>
+
+          <div className="lg-wake">
+            <button
+              type="button"
+              className="lg-wake-btn"
+              data-testid="wake-services"
+              onClick={handleWake}
+              disabled={waking}
+            >
+              {waking ? "Waking services…" : "Services asleep? Wake them"}
+            </button>
+            {wakeStatus && (
+              <p
+                className="lg-wake-status"
+                data-testid="wake-status"
+                role="status"
+              >
+                {wakeStatus}
+              </p>
+            )}
+          </div>
 
           <p className="lg-foot">
             Already have an account? <Link to="/login">Sign in</Link>

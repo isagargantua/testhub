@@ -77,14 +77,17 @@
 .lg-tagline {
   position: absolute;
   left: 40px;
+  right: 40px;
   bottom: 34px;
   z-index: 5;
   margin: 0;
-  font-size: 0.72rem;
+  max-width: 32rem;
+  font-size: 1.05rem;
   font-weight: 600;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: rgba(26, 18, 38, 0.45);
+  line-height: 1.5;
+  letter-spacing: 0.005em;
+  text-transform: none;
+  color: rgba(26, 18, 38, 0.82);
 }
 
 .lg-stage {
@@ -236,12 +239,28 @@
 /* ================= Right: form ================= */
 .lg-form-wrap {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  /* Scroll instead of clipping when the form is taller than the viewport
+     (e.g. the Register page with its extra fields + validation errors).
+     margin:auto on the child keeps it centered when there IS room, and
+     collapses so the top stays reachable when there isn't. */
+  overflow-y: auto;
   padding: 40px;
   background: linear-gradient(180deg, #ffffff 0%, #fcfbff 100%);
 }
-.lg-form { width: 100%; max-width: 366px; }
+.lg-form { width: 100%; max-width: 366px; margin: auto; }
+
+.lg-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 18px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #6a6775;
+  text-decoration: none;
+  transition: color 0.18s ease;
+}
+.lg-back:hover { color: #1a1226; }
 
 .lg-logo { display: flex; justify-content: center; margin-bottom: 22px; }
 .lg-logo svg { width: 34px; height: 34px; color: #1a1226; }
@@ -281,10 +300,10 @@
 .lg-label {
   display: block;
   margin-bottom: 7px;
-  font-size: 0.78rem;
-  font-weight: 600;
+  font-size: 0.8rem;
+  font-weight: 800;
   letter-spacing: 0.01em;
-  color: #6a6775;
+  color: #3f3b49;
 }
 .lg-input-row { position: relative; }
 .lg-input {
@@ -371,17 +390,42 @@
 
 .lg-wake { margin-top: 18px; text-align: center; }
 .lg-wake-btn {
-  background: none;
-  border: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   font-family: inherit;
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: #a09cac;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #5a32d6;
+  background: rgba(122, 69, 255, 0.1);
+  border: 1px solid rgba(122, 69, 255, 0.24);
+  border-radius: 999px;
+  padding: 8px 16px;
   cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  transition: background 0.18s ease, transform 0.14s ease, box-shadow 0.18s ease,
+    color 0.18s ease;
 }
-.lg-wake-btn:hover:not(:disabled) { color: #1a1226; }
+/* a small pulsing dot to draw the eye to the wake action */
+.lg-wake-btn::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #7a45ff;
+  box-shadow: 0 0 0 0 rgba(122, 69, 255, 0.5);
+  animation: lg-wake-pulse 1.8s ease-in-out infinite;
+}
+@keyframes lg-wake-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(122, 69, 255, 0.5); }
+  70% { box-shadow: 0 0 0 7px rgba(122, 69, 255, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(122, 69, 255, 0); }
+}
+.lg-wake-btn:hover:not(:disabled) {
+  background: rgba(122, 69, 255, 0.16);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(122, 69, 255, 0.18);
+  color: #4a16d8;
+}
 .lg-wake-btn:disabled { cursor: progress; opacity: 0.7; }
 .lg-wake-status {
   margin: 8px 0 0;
