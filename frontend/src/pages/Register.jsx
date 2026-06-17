@@ -7,7 +7,6 @@ import { wakeServices } from "../api/warmup";
 import MascotStage, {
   EyeIcon,
   EyeOff,
-  Spark,
   scorePassword,
   strengthToClass,
   useCapsLock,
@@ -184,11 +183,7 @@ export default function Register() {
       />
 
       <div className="lg-form-wrap">
-        <div className="lg-form">
-          <div className="lg-logo">
-            <Spark />
-          </div>
-
+        <div className="lg-form lg-form-compact">
           <h1 className="lg-title lg-title-compact">Create your account</h1>
           <p className="lg-subtitle">Start managing your QA workspace.</p>
 

@@ -276,6 +276,14 @@
 }
 /* Longer titles (e.g. "Create your account") sized to stay on one line. */
 .lg-title-compact { font-size: 2rem; }
+
+/* Tighter vertical rhythm for the taller Register form so the footer stays in
+   view without scrolling. Scoped to .lg-form-compact — Login is untouched. */
+.lg-form-compact .lg-subtitle { margin: 8px 0 22px; }
+.lg-form-compact .lg-field { margin-bottom: 18px; }
+.lg-form-compact .lg-wake { margin-top: 14px; }
+.lg-form-compact .lg-foot { margin-top: 18px; }
+.lg-form-wrap:has(.lg-form-compact) { padding-top: 24px; padding-bottom: 24px; }
 .lg-subtitle {
   margin: 10px 0 32px;
   text-align: center;
