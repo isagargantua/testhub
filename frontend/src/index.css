@@ -692,6 +692,37 @@ body::after {
   color: var(--muted);
 }
 
+/* --- File Storage dropzone (clear "choose files" affordance) -------------- */
+.dump-dropzone {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  cursor: pointer;
+  padding: 18px;
+  border: 1.5px dashed var(--accent);
+  border-radius: 16px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
+}
+.dump-dropzone:hover {
+  background: rgba(99, 102, 241, 0.16);
+  transform: translateY(-1px);
+}
+.dump-dropzone-title {
+  display: block;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+.dump-dropzone-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
 /* --- Table row hover-lift ------------------------------------------------- */
 .row-lift { transition: background-color 0.15s ease, box-shadow 0.15s ease; }
 .row-lift:hover {

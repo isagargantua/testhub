@@ -213,7 +213,7 @@ export default function Dump() {
             <li>
               • Up to{" "}
               <strong>
-                {usage ? formatBytes(usage.maxFileBytes) : "10 MB"}
+                {usage ? formatBytes(usage.maxFileBytes) : "25 MB"}
               </strong>{" "}
               per file, {usage?.maxFiles || 20} files per upload.
             </li>
@@ -244,20 +244,49 @@ export default function Dump() {
       <div className="card">
         <form onSubmit={handleUpload} className="space-y-4">
           <div>
-            <label className="label">Files</label>
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              className="input file:mr-4 file:rounded-full file:border-0 file:bg-[rgba(79,70,229,0.12)] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-[#4f46e5]"
-              onChange={(e) => setFiles(Array.from(e.target.files || []))}
-            />
-            {files.length > 0 && (
-              <p className="mt-2 text-xs text-[#8a7a69]">
-                {files.length} file(s) selected ·{" "}
-                {formatBytes(files.reduce((s, f) => s + f.size, 0))}
-              </p>
-            )}
+            <label className="label">Step 1 — Choose files</label>
+            <label className="dump-dropzone">
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="sr-only"
+                onChange={(e) => setFiles(Array.from(e.target.files || []))}
+              />
+              <svg
+                width="26"
+                height="26"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+              {files.length > 0 ? (
+                <span>
+                  <span className="dump-dropzone-title">
+                    {files.length} file{files.length > 1 ? "s" : ""} ready
+                  </span>
+                  <span className="dump-dropzone-sub">
+                    {formatBytes(files.reduce((s, f) => s + f.size, 0))} · click to change
+                  </span>
+                </span>
+              ) : (
+                <span>
+                  <span className="dump-dropzone-title">Click to choose files</span>
+                  <span className="dump-dropzone-sub">
+                    Text, zip, screenshots — up to{" "}
+                    {usage ? formatBytes(usage.maxFileBytes) : "25 MB"} each
+                  </span>
+                </span>
+              )}
+            </label>
           </div>
 
           <div>
@@ -279,8 +308,12 @@ export default function Dump() {
             </div>
           )}
 
-          <button className="btn" disabled={uploading}>
-            {uploading ? `Uploading… ${progress}%` : "Upload files"}
+          <button className="btn w-full" disabled={uploading || !files.length}>
+            {uploading
+              ? `Uploading… ${progress}%`
+              : files.length
+              ? `Step 2 — Upload ${files.length} file${files.length > 1 ? "s" : ""}`
+              : "Upload files"}
           </button>
         </form>
       </div>
