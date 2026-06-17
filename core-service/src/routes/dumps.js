@@ -4,7 +4,7 @@ const archiver = require("archiver");
 
 const { verifyToken, requireRole } = require("../middleware/auth");
 const prisma = require("../utils/prisma");
-const { parsePagination, isNotFoundError } = require("../utils/http");
+const { parsePagination } = require("../utils/http");
 
 const router = express.Router();
 
@@ -30,6 +30,11 @@ const router = express.Router();
    • Download streams the whole file back through memory (no range requests).
    • To make this production-grade, swap `content` for an object-storage key
      (S3 / Cloudflare R2) and stream to/from there instead of bytea.
+
+   ISOLATION: storage is PER-ADMIN. Every query is scoped to the requesting
+   admin's id (uploadedById), so admins only see / download / zip / delete
+   their own uploads, and the quota is counted per-admin — one admin's files
+   are never visible to another.
    ========================================================================== */
 
 const MAX_FILE_BYTES = (Number(process.env.DUMP_MAX_FILE_MB) || 10) * 1024 * 1024;
@@ -89,16 +94,18 @@ router.use(requireRole("ADMIN"));
 router.get("/", async (req, res) => {
   try {
     const { page, limit, skip } = parsePagination(req.query, { maxLimit: 100 });
+    const mine = { uploadedById: req.user.id };
 
     const [items, total, usage] = await Promise.all([
       prisma.dumpItem.findMany({
+        where: mine,
         select: LIST_SELECT,
         skip,
         take: limit,
         orderBy: { createdAt: "desc" },
       }),
-      prisma.dumpItem.count(),
-      prisma.dumpItem.aggregate({ _sum: { sizeBytes: true } }),
+      prisma.dumpItem.count({ where: mine }),
+      prisma.dumpItem.aggregate({ _sum: { sizeBytes: true }, where: mine }),
     ]);
 
     res.json({
@@ -142,7 +149,10 @@ router.post("/", (req, res) => {
 
     try {
       const incoming = files.reduce((sum, f) => sum + f.size, 0);
-      const current = await prisma.dumpItem.aggregate({ _sum: { sizeBytes: true } });
+      const current = await prisma.dumpItem.aggregate({
+        _sum: { sizeBytes: true },
+        where: { uploadedById: req.user.id },
+      });
       const used = current._sum.sizeBytes || 0;
 
       if (used + incoming > TOTAL_LIMIT_BYTES) {
@@ -189,9 +199,10 @@ router.post("/zip", async (req, res) => {
       return res.status(400).json({ message: "Select at least one item to zip." });
     }
 
-    // Size guard up front (metadata only, no content fetched yet).
+    // Size guard up front (metadata only, no content fetched yet). Scoped to
+    // the requesting admin so you can only zip your own files.
     const metas = await prisma.dumpItem.findMany({
-      where: { id: { in: ids } },
+      where: { id: { in: ids }, uploadedById: req.user.id },
       select: { id: true, sizeBytes: true },
     });
 
@@ -224,7 +235,9 @@ router.post("/zip", async (req, res) => {
     // doesn't silently overwrite entries.
     const usedNames = new Map();
     for (const id of ids) {
-      const item = await prisma.dumpItem.findUnique({ where: { id } });
+      const item = await prisma.dumpItem.findFirst({
+        where: { id, uploadedById: req.user.id },
+      });
       if (!item) continue;
 
       let name = item.filename || `${id}.bin`;
@@ -256,8 +269,8 @@ router.post("/zip", async (req, res) => {
 // Stream a single item's bytes back as a download.
 router.get("/:id/download", async (req, res) => {
   try {
-    const item = await prisma.dumpItem.findUnique({
-      where: { id: req.params.id },
+    const item = await prisma.dumpItem.findFirst({
+      where: { id: req.params.id, uploadedById: req.user.id },
     });
 
     if (!item) {
@@ -280,12 +293,18 @@ router.get("/:id/download", async (req, res) => {
 
 router.delete("/:id", async (req, res) => {
   try {
-    await prisma.dumpItem.delete({ where: { id: req.params.id } });
-    res.json({ message: "Item deleted successfully" });
-  } catch (error) {
-    if (isNotFoundError(error)) {
+    // deleteMany scoped to the owner: count 0 means it's missing OR not yours.
+    const result = await prisma.dumpItem.deleteMany({
+      where: { id: req.params.id, uploadedById: req.user.id },
+    });
+
+    if (result.count === 0) {
       return res.status(404).json({ message: "Item not found" });
     }
+
+    res.json({ message: "Item deleted successfully" });
+  } catch (error) {
+    console.log(error);
     res.status(500).json({ message: "Internal server error" });
   }
 });
