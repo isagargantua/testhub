@@ -7,6 +7,8 @@ import TestRuns from "./pages/TestRuns";
 import RunDetail from "./pages/RunDetail";
 import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
+import { ToastProvider } from "./components/Toast";
+import { ConfirmProvider } from "./components/ConfirmDialog";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 import Login from "./pages/Login";
@@ -22,8 +24,10 @@ export default function App() {
     <BrowserRouter>
       <ThemeProvider>
         <AuthProvider>
-          <TitleSync />
-          <Routes>
+          <ToastProvider>
+            <ConfirmProvider>
+              <TitleSync />
+              <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route
@@ -57,8 +61,10 @@ export default function App() {
               <Route path="projects/:projectId/runs" element={<TestRuns />} />
               <Route path="runs/:runId" element={<RunDetail />} />
               <Route path="test-cases" element={<AllTestCases />} />
-            </Route>
-          </Routes>
+                </Route>
+              </Routes>
+            </ConfirmProvider>
+          </ToastProvider>
         </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>

@@ -4,6 +4,8 @@ import { getAllTestCases, exportTestCases } from "../api/testcases";
 import { getProjects } from "../api/projects";
 import Badge from "../components/Badge";
 import Pagination from "../components/Pagination";
+import { SkeletonCards } from "../components/Skeleton";
+import EmptyState from "../components/EmptyState";
 
 const PRIORITY_COLORS = {
   CRITICAL: { bg: "bg-[rgba(239,68,68,0.12)]",   text: "text-[#991b1b]",  dark: "text-[#f87171]"  },
@@ -168,20 +170,16 @@ export default function AllTestCases() {
       )}
 
       {loading ? (
-        <div className="card">
-          <div className="eyebrow">Test Library</div>
-          <div className="mt-3 display-title text-3xl">Loading test cases…</div>
-        </div>
+        <SkeletonCards count={6} />
       ) : items.length === 0 ? (
-        <div className="card">
-          <div className="eyebrow">Empty</div>
-          <h2 className="mt-2 display-title text-3xl">No test cases found</h2>
-          <p className="mt-3 text-sm leading-6 text-[#75675a]">
-            {debouncedSearch || projectId
+        <EmptyState
+          title="No test cases found"
+          description={
+            debouncedSearch || projectId
               ? "Try adjusting your search or filter."
-              : "Create a project, add a suite, and add test cases to see them here."}
-          </p>
-        </div>
+              : "Create a project, add a suite, and add test cases to see them here."
+          }
+        />
       ) : (
         <>
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">

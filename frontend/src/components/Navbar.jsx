@@ -3,13 +3,25 @@ import { useAuth } from "../context/AuthContext";
 import HelpModal from "./HelpModal";
 import ThemeToggle from "./ThemeToggle";
 
-export default function Navbar({ onMobileMenuOpen }) {
+function openCommandPalette() {
+  // CommandPalette listens for ⌘K / Ctrl+K on window — dispatch it so the chip
+  // works as a clickable affordance too.
+  window.dispatchEvent(
+    new KeyboardEvent("keydown", { key: "k", metaKey: true, ctrlKey: true })
+  );
+}
+
+export default function Navbar({ onMobileMenuOpen, scrolled = false }) {
   const { user, logout } = useAuth();
   const [helpOpen, setHelpOpen] = useState(false);
 
   return (
     <>
-      <div className="border-b border-[rgba(80,67,43,0.08)] bg-[rgba(255,251,245,0.52)] px-4 py-4 backdrop-blur-md md:px-6 lg:px-8">
+      <div
+        className={`glass-nav border-b border-[rgba(80,67,43,0.08)] bg-[rgba(255,251,245,0.52)] px-4 py-4 backdrop-blur-md md:px-6 lg:px-8 ${
+          scrolled ? "is-scrolled" : ""
+        }`}
+      >
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex items-start gap-3">
             {/* Hamburger — mobile only */}
@@ -40,9 +52,18 @@ export default function Navbar({ onMobileMenuOpen }) {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="hidden rounded-full border border-[rgba(80,67,43,0.1)] bg-white/65 px-4 py-2 text-sm text-[#57483a] shadow-sm md:block">
-              Session active
-            </div>
+            <button
+              type="button"
+              onClick={openCommandPalette}
+              title="Quick jump (Ctrl/⌘ + K)"
+              className="hidden items-center gap-2 rounded-full border border-[rgba(80,67,43,0.1)] bg-white/65 px-3 py-2 text-sm text-[#57483a] shadow-sm transition hover:bg-white md:inline-flex"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                <circle cx="11" cy="11" r="7" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <span className="font-mono text-[0.7rem] tracking-tight text-[#7b6a58]">⌘K</span>
+            </button>
             <ThemeToggle />
             <button
               onClick={() => setHelpOpen(true)}

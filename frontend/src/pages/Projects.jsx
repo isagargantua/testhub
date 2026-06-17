@@ -13,6 +13,10 @@ import {
 } from "../api/projects";
 
 import Modal from "../components/Modal";
+import { SkeletonCards } from "../components/Skeleton";
+import EmptyState from "../components/EmptyState";
+import { useToast } from "../components/Toast";
+import { useConfirm } from "../components/ConfirmDialog";
 
 const REFRESH_INTERVAL_MS = 15000;
 
@@ -35,6 +39,8 @@ function getErrorMessage(error, fallback) {
 
 export default function Projects() {
   const navigate = useNavigate();
+  const toast = useToast();
+  const confirm = useConfirm();
 
   const [projects, setProjects] = useState([]);
   const [open, setOpen] = useState(false);
@@ -44,8 +50,6 @@ export default function Projects() {
   const [refreshing, setRefreshing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState("");
-  const [error, setError] = useState("");
-  const [feedback, setFeedback] = useState("");
 
   const loadProjects = useCallback(
     async ({ silent = false } = {}) => {
@@ -58,14 +62,10 @@ export default function Projects() {
 
         const data = await getProjects();
         setProjects(data.items);
-        setError("");
       } catch (err) {
-        setError(
-          getErrorMessage(
-            err,
-            "Could not load projects."
-          )
-        );
+        if (!silent) {
+          toast.error(getErrorMessage(err, "Could not load projects."));
+        }
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -108,8 +108,6 @@ export default function Projects() {
 
     try {
       setSubmitting(true);
-      setError("");
-      setFeedback("");
 
       const project = await createProject({
         name: name.trim(),
@@ -120,16 +118,11 @@ export default function Projects() {
       setName("");
       setDescription("");
       setOpen(false);
-      setFeedback(`Created ${project.name}`);
+      toast.success(`Created “${project.name}”`);
 
       loadProjects({ silent: true });
     } catch (err) {
-      setError(
-        getErrorMessage(
-          err,
-          "Could not create the project."
-        )
-      );
+      toast.error(getErrorMessage(err, "Could not create the project."));
     } finally {
       setSubmitting(false);
     }
@@ -139,9 +132,12 @@ export default function Projects() {
     event.preventDefault();
     event.stopPropagation();
 
-    const confirmed = window.confirm(
-      `Delete ${project.name}? This also removes its suites, cases, and runs.`
-    );
+    const confirmed = await confirm({
+      title: `Delete “${project.name}”?`,
+      message:
+        "This also removes its suites, cases, and runs. This cannot be undone.",
+      confirmLabel: "Delete",
+    });
 
     if (!confirmed) {
       return;
@@ -151,23 +147,16 @@ export default function Projects() {
 
     try {
       setDeletingId(project.id);
-      setError("");
-      setFeedback("");
       setProjects((current) =>
         current.filter((item) => item.id !== project.id)
       );
 
       await deleteProject(project.id);
-      setFeedback(`Deleted ${project.name}`);
+      toast.success(`Deleted “${project.name}”`);
       loadProjects({ silent: true });
     } catch (err) {
       setProjects(previousProjects);
-      setError(
-        getErrorMessage(
-          err,
-          "Could not delete the project."
-        )
-      );
+      toast.error(getErrorMessage(err, "Could not delete the project."));
     } finally {
       setDeletingId("");
     }
@@ -200,25 +189,8 @@ export default function Projects() {
         </div>
       </div>
 
-      {feedback && (
-        <div className="rounded-[18px] border border-[rgba(88,137,102,0.18)] bg-[rgba(88,137,102,0.08)] px-4 py-3 text-sm text-[#466451]">
-          {feedback}
-        </div>
-      )}
-
-      {error && (
-        <div className="rounded-[18px] border border-[rgba(168,80,63,0.18)] bg-[rgba(168,80,63,0.08)] px-4 py-3 text-sm text-[#8b4335]">
-          {error}
-        </div>
-      )}
-
       {loading ? (
-        <div className="card">
-          <div className="eyebrow">Projects</div>
-          <div className="mt-3 display-title text-3xl">
-            Loading projects...
-          </div>
-        </div>
+        <SkeletonCards count={6} />
       ) : (
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
           {projects.map((project) => (
@@ -267,15 +239,15 @@ export default function Projects() {
           ))}
 
           {!projects.length && (
-            <div className="card md:col-span-2 xl:col-span-3">
-              <div className="eyebrow">Empty state</div>
-              <h2 className="mt-2 display-title text-3xl">
-                No projects yet
-              </h2>
-              <p className="mt-3 max-w-xl text-sm leading-6 text-[#75675a]">
-                Create a first project to start grouping suites, cases, and
-                runs into a clean testing workspace.
-              </p>
+            <div className="md:col-span-2 xl:col-span-3">
+              <EmptyState
+                title="No projects yet"
+                description="Create a first project to start grouping suites, cases, and runs into a clean testing workspace."
+              >
+                <button className="btn" onClick={() => setOpen(true)}>
+                  Create Project
+                </button>
+              </EmptyState>
             </div>
           )}
         </div>

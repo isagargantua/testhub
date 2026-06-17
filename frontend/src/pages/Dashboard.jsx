@@ -9,6 +9,7 @@ import {
 import { getDashboardStats, getResultsByStatus } from "../api/dashboard";
 import Badge from "../components/Badge";
 import StatsCard from "../components/StatsCard";
+import { Skeleton, SkeletonStats } from "../components/Skeleton";
 import { useTheme } from "../context/ThemeContext";
 
 const RESULT_COLORS = {
@@ -146,9 +147,25 @@ export default function Dashboard() {
 
   if (loading && !stats) {
     return (
-      <div className="card">
-        <div className="eyebrow">Dashboard</div>
-        <div className="mt-3 display-title text-3xl">Loading dashboard...</div>
+      <div className="space-y-6">
+        <div className="page-heading">
+          <div>
+            <div className="eyebrow">Command center</div>
+            <h1 className="display-title mt-2 text-4xl md:text-5xl">Dashboard</h1>
+          </div>
+        </div>
+        <SkeletonStats count={4} />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div className="card space-y-4">
+            <Skeleton className="h-5 w-40" />
+            <Skeleton className="h-[200px] w-full rounded-2xl" />
+          </div>
+          <div className="card space-y-3">
+            <Skeleton className="h-5 w-32" />
+            <Skeleton className="h-16 w-full rounded-2xl" />
+            <Skeleton className="h-16 w-full rounded-2xl" />
+          </div>
+        </div>
       </div>
     );
   }
@@ -209,7 +226,14 @@ export default function Dashboard() {
         <StatsCard title="Projects"   value={safe.totalProjects}   detail="Active workspaces" />
         <StatsCard title="Test Cases" value={safe.totalTestCases}  detail="Scenarios available" />
         <StatsCard title="Runs"       value={safe.totalRuns}       detail="Recorded executions" />
-        <StatsCard title="Pass Rate"  value={`${safe.passRatePercent}%`} detail="Success ratio" />
+        <StatsCard
+          title="Pass Rate"
+          value={safe.passRatePercent}
+          suffix="%"
+          detail="Success ratio"
+          spark={totalResults > 0 ? chartData.map((d) => d.value) : undefined}
+          sparkColor="#22c55e"
+        />
       </div>
 
       {/* Result Breakdown + Recent Runs */}

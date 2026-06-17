@@ -7,6 +7,10 @@ import {
 } from "../api/users";
 
 import Modal from "../components/Modal";
+import { SkeletonTableRows } from "../components/Skeleton";
+import EmptyState from "../components/EmptyState";
+import { useToast } from "../components/Toast";
+import { useConfirm } from "../components/ConfirmDialog";
 
 function formatDate(value) {
   return new Date(value).toLocaleString();
@@ -30,13 +34,13 @@ function getErrorMessage(error, fallback) {
 }
 
 export default function Users() {
+  const toast = useToast();
+  const confirm = useConfirm();
   const [users, setUsers] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
-  const [feedback, setFeedback] = useState("");
-  const [error, setError] = useState("");
   const [page, setPage] = useState(1);
   const [resetTarget, setResetTarget] = useState(null);
   const [newPassword, setNewPassword] = useState("Test@12345");
@@ -46,7 +50,6 @@ export default function Users() {
   const loadUsers = useCallback(async () => {
     try {
       setLoading(true);
-      setError("");
 
       const data = await getUsers({
         page,
@@ -57,16 +60,11 @@ export default function Users() {
       setUsers(data.items);
       setPagination(data.pagination);
     } catch (err) {
-      setError(
-        getErrorMessage(
-          err,
-          "Could not load users right now."
-        )
-      );
+      toast.error(getErrorMessage(err, "Could not load users right now."));
     } finally {
       setLoading(false);
     }
-  }, [page, search]);
+  }, [page, search, toast]);
 
   useEffect(() => {
     loadUsers();
@@ -86,9 +84,11 @@ export default function Users() {
   );
 
   async function handleDelete(user) {
-    const confirmed = window.confirm(
-      `Delete ${user.email}? This cannot be undone.`
-    );
+    const confirmed = await confirm({
+      title: `Delete ${user.email}?`,
+      message: "This permanently removes the account. This cannot be undone.",
+      confirmLabel: "Delete",
+    });
 
     if (!confirmed) {
       return;
@@ -96,12 +96,10 @@ export default function Users() {
 
     try {
       setDeletingId(user.id);
-      setError("");
-      setFeedback("");
 
       await deleteUser(user.id);
 
-      setFeedback(`Deleted ${user.email}`);
+      toast.success(`Deleted ${user.email}`);
 
       if (users.length === 1 && page > 1) {
         setPage((current) => current - 1);
@@ -110,12 +108,7 @@ export default function Users() {
 
       loadUsers();
     } catch (err) {
-      setError(
-        getErrorMessage(
-          err,
-          "Could not delete the user."
-        )
-      );
+      toast.error(getErrorMessage(err, "Could not delete the user."));
     } finally {
       setDeletingId("");
     }
@@ -126,15 +119,13 @@ export default function Users() {
 
     try {
       setSubmittingReset(true);
-      setError("");
-      setFeedback("");
 
       await resetUserPassword(
         resetTarget.id,
         newPassword
       );
 
-      setFeedback(
+      toast.success(
         `Password for ${resetTarget.email} was reset to "${newPassword}".`
       );
 
@@ -142,12 +133,7 @@ export default function Users() {
       setNewPassword("Test@12345");
       loadUsers();
     } catch (err) {
-      setError(
-        getErrorMessage(
-          err,
-          "Could not reset the password."
-        )
-      );
+      toast.error(getErrorMessage(err, "Could not reset the password."));
     } finally {
       setSubmittingReset(false);
     }
@@ -198,17 +184,6 @@ export default function Users() {
           </button>
         </form>
 
-        {feedback && (
-          <div className="mt-4 rounded-[18px] border border-[rgba(88,137,102,0.18)] bg-[rgba(88,137,102,0.08)] px-4 py-3 text-sm text-[#466451]">
-            {feedback}
-          </div>
-        )}
-
-        {error && (
-          <div className="mt-4 rounded-[18px] border border-[rgba(168,80,63,0.18)] bg-[rgba(168,80,63,0.08)] px-4 py-3 text-sm text-[#8b4335]">
-            {error}
-          </div>
-        )}
       </div>
 
       <div className="card overflow-hidden">
@@ -225,19 +200,12 @@ export default function Users() {
             </thead>
             <tbody>
               {loading ? (
-                <tr>
-                  <td
-                    colSpan="5"
-                    className="px-4 py-8 text-sm text-[#75675a]"
-                  >
-                    Loading users...
-                  </td>
-                </tr>
+                <SkeletonTableRows rows={6} cols={5} />
               ) : users.length ? (
                 users.map((user) => (
                   <tr
                     key={user.id}
-                    className="border-b border-[rgba(80,67,43,0.06)] align-top last:border-b-0"
+                    className="row-lift border-b border-[rgba(80,67,43,0.06)] align-top last:border-b-0"
                   >
                     <td className="px-4 py-4">
                       <div className="font-semibold text-[#2d241a]">
@@ -286,11 +254,11 @@ export default function Users() {
                 ))
               ) : (
                 <tr>
-                  <td
-                    colSpan="5"
-                    className="px-4 py-8 text-sm text-[#75675a]"
-                  >
-                    No users matched the current filter.
+                  <td colSpan="5">
+                    <EmptyState
+                      title="No users found"
+                      description="No accounts match the current filter. Try a different search."
+                    />
                   </td>
                 </tr>
               )}

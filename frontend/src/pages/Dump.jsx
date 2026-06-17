@@ -7,6 +7,10 @@ import {
   getDumps,
   uploadDumps,
 } from "../api/dumps";
+import { SkeletonTableRows } from "../components/Skeleton";
+import EmptyState from "../components/EmptyState";
+import { useToast } from "../components/Toast";
+import { useConfirm } from "../components/ConfirmDialog";
 
 function formatBytes(bytes) {
   if (!bytes) return "0 B";
@@ -42,11 +46,11 @@ function getErrorMessage(error, fallback) {
 }
 
 export default function Dump() {
+  const toast = useToast();
+  const confirm = useConfirm();
   const [items, setItems] = useState([]);
   const [usage, setUsage] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [feedback, setFeedback] = useState("");
 
   const [files, setFiles] = useState([]);
   const [notes, setNotes] = useState("");
@@ -62,16 +66,15 @@ export default function Dump() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      setError("");
       const data = await getDumps({ limit: 100 });
       setItems(data.items);
       setUsage(data.usage);
     } catch (err) {
-      setError(getErrorMessage(err, "Could not load file storage right now."));
+      toast.error(getErrorMessage(err, "Could not load file storage right now."));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     load();
@@ -80,25 +83,23 @@ export default function Dump() {
   async function handleUpload(e) {
     e.preventDefault();
     if (!files.length) {
-      setError("Pick at least one file to upload.");
+      toast.error("Pick at least one file to upload.");
       return;
     }
 
     try {
       setUploading(true);
-      setError("");
-      setFeedback("");
       setProgress(0);
 
       const data = await uploadDumps(files, notes, setProgress);
 
-      setFeedback(`Stored ${data.items.length} item(s).`);
+      toast.success(`Stored ${data.items.length} item(s).`);
       setFiles([]);
       setNotes("");
       if (fileInputRef.current) fileInputRef.current.value = "";
       load();
     } catch (err) {
-      setError(getErrorMessage(err, "Upload failed."));
+      toast.error(getErrorMessage(err, "Upload failed."));
     } finally {
       setUploading(false);
       setProgress(0);
@@ -107,26 +108,28 @@ export default function Dump() {
 
   async function handleDownload(item) {
     try {
-      setError("");
       await downloadDump(item.id, item.filename);
     } catch (err) {
-      setError(getErrorMessage(err, "Could not download that item."));
+      toast.error(getErrorMessage(err, "Could not download that item."));
     }
   }
 
   async function handleDelete(item) {
-    if (!window.confirm(`Delete "${item.filename}"? This cannot be undone.`)) {
+    const confirmed = await confirm({
+      title: `Delete “${item.filename}”?`,
+      message: "This permanently removes the file. This cannot be undone.",
+      confirmLabel: "Delete",
+    });
+    if (!confirmed) {
       return;
     }
     try {
       setDeletingId(item.id);
-      setError("");
-      setFeedback("");
       await deleteDump(item.id);
-      setFeedback(`Deleted "${item.filename}".`);
+      toast.success(`Deleted “${item.filename}”`);
       load();
     } catch (err) {
-      setError(getErrorMessage(err, "Could not delete that item."));
+      toast.error(getErrorMessage(err, "Could not delete that item."));
     } finally {
       setDeletingId("");
     }
@@ -135,8 +138,6 @@ export default function Dump() {
   function enterSelect() {
     setSelecting(true);
     setSelected(new Set());
-    setError("");
-    setFeedback("");
   }
 
   function cancelSelect() {
@@ -163,10 +164,8 @@ export default function Dump() {
     if (!selected.size) return;
     try {
       setZipping(true);
-      setError("");
-      setFeedback("");
       await downloadDumpsZip([...selected]);
-      setFeedback(`Zipped ${selected.size} item(s).`);
+      toast.success(`Zipped ${selected.size} item(s).`);
       cancelSelect();
     } catch (err) {
       // With responseType "blob", an error body comes back as a Blob, so the
@@ -183,7 +182,7 @@ export default function Dump() {
       } else {
         message = getErrorMessage(err, message);
       }
-      setError(message);
+      toast.error(message);
     } finally {
       setZipping(false);
     }
@@ -284,17 +283,6 @@ export default function Dump() {
             {uploading ? `Uploading… ${progress}%` : "Upload files"}
           </button>
         </form>
-
-        {feedback && (
-          <div className="mt-4 rounded-[18px] border border-[rgba(88,137,102,0.18)] bg-[rgba(88,137,102,0.08)] px-4 py-3 text-sm text-[#466451]">
-            {feedback}
-          </div>
-        )}
-        {error && (
-          <div className="mt-4 rounded-[18px] border border-[rgba(168,80,63,0.18)] bg-[rgba(168,80,63,0.08)] px-4 py-3 text-sm text-[#8b4335]">
-            {error}
-          </div>
-        )}
       </div>
 
       <div className="card overflow-hidden">
@@ -355,16 +343,12 @@ export default function Dump() {
             </thead>
             <tbody>
               {loading ? (
-                <tr>
-                  <td colSpan={colCount} className="px-4 py-8 text-sm text-[#75675a]">
-                    Loading files…
-                  </td>
-                </tr>
+                <SkeletonTableRows rows={5} cols={colCount} />
               ) : items.length ? (
                 items.map((item) => (
                   <tr
                     key={item.id}
-                    className="border-b border-[rgba(80,67,43,0.06)] align-top last:border-b-0"
+                    className="row-lift border-b border-[rgba(80,67,43,0.06)] align-top last:border-b-0"
                   >
                     {selecting && (
                       <td className="px-4 py-4">
@@ -422,8 +406,11 @@ export default function Dump() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={colCount} className="px-4 py-8 text-sm text-[#75675a]">
-                    No files yet. Upload something above to get started.
+                  <td colSpan={colCount}>
+                    <EmptyState
+                      title="No files yet"
+                      description="Upload something above to get started — text files, zipped folders, screenshots, anything."
+                    />
                   </td>
                 </tr>
               )}

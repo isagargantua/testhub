@@ -166,7 +166,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }) {
       <aside
         className={`hidden lg:flex flex-col ${
           collapsed ? "lg:w-[78px]" : "lg:w-[260px]"
-        } bg-[#0f172a] text-white p-5 min-h-screen border-r border-white/10 transition-[width] duration-200`}
+        } bg-[#0f172a] text-white p-5 h-full overflow-y-auto border-r border-white/10 transition-[width] duration-200`}
       >
         {/* Brand + collapse toggle */}
         <div className="flex items-center justify-between gap-2 px-2 mb-6">
