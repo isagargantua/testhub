@@ -55,6 +55,12 @@ client.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
+    // A user-canceled request (AbortController) must never be retried or
+    // treated as a cold-start failure — surface the cancellation as-is.
+    if (axios.isCancel(error)) {
+      return Promise.reject(error);
+    }
+
     // Transparently retry transient cold-start failures before treating the
     // request as failed, so login/data loads "just wait, then work".
     if (originalRequest && isColdStartError(error)) {

@@ -58,6 +58,7 @@ export default function Dump() {
   const [progress, setProgress] = useState(0);
   const [deletingId, setDeletingId] = useState("");
   const fileInputRef = useRef(null);
+  const abortRef = useRef(null);
 
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState(() => new Set());
@@ -87,11 +88,14 @@ export default function Dump() {
       return;
     }
 
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
       setUploading(true);
       setProgress(0);
 
-      const data = await uploadDumps(files, notes, setProgress);
+      const data = await uploadDumps(files, notes, setProgress, controller.signal);
 
       toast.success(`Stored ${data.items.length} item(s).`);
       setFiles([]);
@@ -99,11 +103,20 @@ export default function Dump() {
       if (fileInputRef.current) fileInputRef.current.value = "";
       load();
     } catch (err) {
-      toast.error(getErrorMessage(err, "Upload failed."));
+      if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") {
+        toast.info("Upload canceled.");
+      } else {
+        toast.error(getErrorMessage(err, "Upload failed."));
+      }
     } finally {
       setUploading(false);
       setProgress(0);
+      abortRef.current = null;
     }
+  }
+
+  function cancelUpload() {
+    abortRef.current?.abort();
   }
 
   async function handleDownload(item) {
@@ -213,7 +226,7 @@ export default function Dump() {
             <li>
               • Up to{" "}
               <strong>
-                {usage ? formatBytes(usage.maxFileBytes) : "25 MB"}
+                {usage ? formatBytes(usage.maxFileBytes) : "40 MB"}
               </strong>{" "}
               per file, {usage?.maxFiles || 20} files per upload.
             </li>
@@ -282,7 +295,7 @@ export default function Dump() {
                   <span className="dump-dropzone-title">Click to choose files</span>
                   <span className="dump-dropzone-sub">
                     Text, zip, screenshots — up to{" "}
-                    {usage ? formatBytes(usage.maxFileBytes) : "25 MB"} each
+                    {usage ? formatBytes(usage.maxFileBytes) : "40 MB"} each
                   </span>
                 </span>
               )}
@@ -308,13 +321,26 @@ export default function Dump() {
             </div>
           )}
 
-          <button className="btn w-full" disabled={uploading || !files.length}>
-            {uploading
-              ? `Uploading… ${progress}%`
-              : files.length
-              ? `Step 2 — Upload ${files.length} file${files.length > 1 ? "s" : ""}`
-              : "Upload files"}
-          </button>
+          {uploading ? (
+            <div className="flex gap-3">
+              <button type="button" className="btn w-full" disabled>
+                Uploading… {progress}%
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={cancelUpload}
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button className="btn w-full" disabled={!files.length}>
+              {files.length
+                ? `Step 2 — Upload ${files.length} file${files.length > 1 ? "s" : ""}`
+                : "Upload files"}
+            </button>
+          )}
         </form>
       </div>
 

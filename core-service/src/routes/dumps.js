@@ -17,7 +17,7 @@ const router = express.Router();
    gated to ADMIN.
 
    LIMITATIONS (by design — this is a practice target, not production storage):
-   • Per-file cap (DUMP_MAX_FILE_MB, default 25MB) and per-request file count
+   • Per-file cap (DUMP_MAX_FILE_MB, default 40MB) and per-request file count
      (DUMP_MAX_FILES, default 20). Render's free tier has ~512MB RAM and multer
      buffers each upload in memory, so big files can OOM the service — keep the
      cap modest.
@@ -37,7 +37,7 @@ const router = express.Router();
    are never visible to another.
    ========================================================================== */
 
-const MAX_FILE_BYTES = (Number(process.env.DUMP_MAX_FILE_MB) || 25) * 1024 * 1024;
+const MAX_FILE_BYTES = (Number(process.env.DUMP_MAX_FILE_MB) || 40) * 1024 * 1024;
 const MAX_FILES = Number(process.env.DUMP_MAX_FILES) || 20;
 const TOTAL_LIMIT_BYTES =
   (Number(process.env.DUMP_TOTAL_LIMIT_MB) || 200) * 1024 * 1024;

@@ -6,7 +6,7 @@ export async function getDumps(params) {
   return response.data;
 }
 
-export async function uploadDumps(files, notes, onProgress) {
+export async function uploadDumps(files, notes, onProgress, signal) {
   const form = new FormData();
 
   for (const file of files) {
@@ -19,6 +19,7 @@ export async function uploadDumps(files, notes, onProgress) {
 
   const response = await client.post("/api/dumps", form, {
     headers: { "Content-Type": "multipart/form-data" },
+    signal,
     onUploadProgress: (event) => {
       if (onProgress && event.total) {
         onProgress(Math.round((event.loaded / event.total) * 100));
