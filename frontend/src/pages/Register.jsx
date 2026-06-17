@@ -185,15 +185,11 @@ export default function Register() {
 
       <div className="lg-form-wrap">
         <div className="lg-form">
-          <Link to="/login" className="lg-back">
-            <span aria-hidden="true">←</span> Back to sign in
-          </Link>
-
           <div className="lg-logo">
             <Spark />
           </div>
 
-          <h1 className="lg-title">Create your account</h1>
+          <h1 className="lg-title lg-title-compact">Create your account</h1>
           <p className="lg-subtitle">Start managing your QA workspace.</p>
 
           {error && (

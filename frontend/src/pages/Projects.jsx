@@ -242,12 +242,8 @@ export default function Projects() {
             <div className="md:col-span-2 xl:col-span-3">
               <EmptyState
                 title="No projects yet"
-                description="Create a first project to start grouping suites, cases, and runs into a clean testing workspace."
-              >
-                <button className="btn" onClick={() => setOpen(true)}>
-                  Create Project
-                </button>
-              </EmptyState>
+                description="Use “Create Project” above to start grouping suites, cases, and runs into a clean testing workspace."
+              />
             </div>
           )}
         </div>

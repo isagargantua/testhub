@@ -274,6 +274,8 @@
   letter-spacing: -0.015em;
   color: #1a1226;
 }
+/* Longer titles (e.g. "Create your account") sized to stay on one line. */
+.lg-title-compact { font-size: 2rem; }
 .lg-subtitle {
   margin: 10px 0 32px;
   text-align: center;
