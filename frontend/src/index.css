@@ -6,19 +6,23 @@
 
 :root {
   color-scheme: light;
-  --bg: #f1f5f9;
+  --bg: #eef1f8;
   --surface: #ffffff;
+  --surface-2: #f7f8fc;
   --surface-dark: #0f172a;
-  --line: #e2e8f0;
-  --line-strong: #cbd5e1;
+  --line: #e6e8f2;
+  --line-strong: #cdd2e6;
   --text: #0f172a;
   --muted: #64748b;
-  --accent: #4f46e5;
+  --accent: #5b54e6;
+  --accent-2: #8b5cf6;
   --accent-strong: #4338ca;
-  --accent-soft: rgba(79, 70, 229, 0.08);
-  --shadow-xl: 0 20px 60px rgba(15, 23, 42, 0.12);
-  --shadow-lg: 0 12px 40px rgba(15, 23, 42, 0.08);
-  --shadow-md: 0 4px 16px rgba(15, 23, 42, 0.06);
+  --accent-soft: rgba(91, 84, 230, 0.09);
+  --accent-grad: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  --glow: 0 0 0 1px rgba(99, 102, 241, 0.0);
+  --shadow-xl: 0 24px 70px -20px rgba(30, 27, 75, 0.22);
+  --shadow-lg: 0 16px 44px -18px rgba(30, 27, 75, 0.18);
+  --shadow-md: 0 2px 4px rgba(15, 23, 42, 0.04), 0 14px 30px -16px rgba(30, 27, 75, 0.16);
   --radius-xl: 28px;
   --radius-lg: 22px;
   --radius-md: 16px;
@@ -87,41 +91,45 @@ body::after {
 .page-shell {
   min-height: 100vh;
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.40), transparent 48%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.50), rgba(255, 255, 255, 0));
+    radial-gradient(60% 50% at 12% 0%, rgba(99, 102, 241, 0.12), transparent 60%),
+    radial-gradient(55% 45% at 100% 8%, rgba(139, 92, 246, 0.10), transparent 60%),
+    linear-gradient(180deg, #f4f5fb 0%, #eceef7 100%);
 }
 
 .app-panel {
-  background: var(--surface);
-  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.6);
   box-shadow: var(--shadow-xl);
-  backdrop-filter: blur(18px);
+  backdrop-filter: blur(20px);
 }
 
 .card {
   @apply rounded-[16px] p-6;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  position: relative;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfbff 100%);
+  border: 1px solid var(--line);
   box-shadow: var(--shadow-md);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .card-soft {
-  @apply rounded-[12px] p-5;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  box-shadow: var(--shadow-md);
+  @apply rounded-[14px] p-5;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  box-shadow: none;
 }
 
 .btn {
   @apply inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-sm font-semibold transition duration-200;
-  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+  background: var(--accent-grad);
   color: #ffffff;
-  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+  box-shadow: 0 6px 18px -4px rgba(99, 102, 241, 0.5);
 }
 
 .btn:hover {
   transform: translateY(-1px);
-  background: linear-gradient(135deg, #4338ca 0%, #4f46e5 100%);
+  filter: brightness(1.06);
+  box-shadow: 0 10px 26px -6px rgba(99, 102, 241, 0.6);
 }
 
 .btn:disabled {
@@ -342,6 +350,21 @@ body::after {
 }
 
 /* ===========================================================================
+   PREMIUM SIDEBAR (dark in both themes) — deep indigo-tinted gradient with a
+   glowing active nav item / primary chips. Overrides the inline Tailwind
+   arbitrary colours used in Sidebar.jsx.
+   =========================================================================== */
+.bg-\[\#0f172a\] {
+  background:
+    radial-gradient(110% 45% at 0% 0%, rgba(124, 110, 245, 0.22), transparent 58%),
+    linear-gradient(180deg, #15152b 0%, #0b0b16 100%);
+}
+.bg-\[\#4f46e5\] {
+  background: linear-gradient(135deg, #6d6af2 0%, #9a6cf0 100%);
+  box-shadow: 0 8px 22px -8px rgba(124, 110, 245, 0.7);
+}
+
+/* ===========================================================================
    DARK MODE
    Activated by data-theme="dark" on <html>. This block is purely additive —
    light mode is never touched. We (1) flip the design-token variables, (2)
@@ -350,21 +373,24 @@ body::after {
    =========================================================================== */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  background: #0b1020;
+  background: #07070d;
 
-  --bg: #0b1020;
-  --surface: #121829;
-  --surface-dark: #0b1020;
-  --line: rgba(255, 255, 255, 0.10);
-  --line-strong: rgba(255, 255, 255, 0.20);
-  --text: #e9e5df;
-  --muted: #9aa3b4;
-  --accent: #6366f1;
-  --accent-strong: #818cf8;
-  --accent-soft: rgba(99, 102, 241, 0.18);
-  --shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.55);
-  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.45);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.40);
+  --bg: #07070d;
+  --surface: #12121c;
+  --surface-2: #17171f;
+  --surface-dark: #07070d;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.16);
+  --text: #ecedf6;
+  --muted: #9a9ab5;
+  --accent: #818cf8;
+  --accent-2: #a78bfa;
+  --accent-strong: #a5b4fc;
+  --accent-soft: rgba(129, 140, 248, 0.16);
+  --accent-grad: linear-gradient(135deg, #6d6af2 0%, #9a6cf0 100%);
+  --shadow-xl: 0 30px 80px -24px rgba(0, 0, 0, 0.8);
+  --shadow-lg: 0 18px 50px -20px rgba(0, 0, 0, 0.7);
+  --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.4), 0 18px 38px -20px rgba(0, 0, 0, 0.7);
 }
 
 :root[data-theme="dark"] body {
@@ -373,39 +399,42 @@ body::after {
 
 :root[data-theme="dark"] .page-shell {
   background:
-    linear-gradient(135deg, rgba(99, 102, 241, 0.10), transparent 48%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0));
+    radial-gradient(55% 45% at 8% 0%, rgba(99, 102, 241, 0.2), transparent 60%),
+    radial-gradient(50% 42% at 100% 4%, rgba(139, 92, 246, 0.16), transparent 60%),
+    radial-gradient(70% 55% at 50% 115%, rgba(56, 189, 248, 0.07), transparent 60%),
+    linear-gradient(180deg, #08080f 0%, #0a0a13 100%);
 }
 
 :root[data-theme="dark"] .premium-grid {
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
 }
 
 :root[data-theme="dark"] .app-panel {
-  background: var(--surface);
-  border-color: var(--line);
+  background: rgba(16, 16, 26, 0.66);
+  border-color: rgba(255, 255, 255, 0.07);
 }
 
 :root[data-theme="dark"] .card {
-  background: #151c2e;
-  border-color: var(--line);
+  background: linear-gradient(180deg, #1a1a27 0%, #131320 100%);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 :root[data-theme="dark"] .card-soft {
-  background: #1b2236;
-  border-color: var(--line);
+  background: rgba(255, 255, 255, 0.035);
+  border-color: rgba(255, 255, 255, 0.07);
 }
 
 :root[data-theme="dark"] .btn-secondary {
-  background: #1b2236;
+  background: rgba(255, 255, 255, 0.05);
   color: var(--text);
-  border-color: var(--line);
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 :root[data-theme="dark"] .btn-secondary:hover {
-  background: #232c44;
+  background: rgba(255, 255, 255, 0.09);
   border-color: var(--line-strong);
 }
 
@@ -496,9 +525,9 @@ body::after {
   background-color: rgba(255, 255, 255, 0.05);
 }
 
-/* Top navbar bar (cream in light mode) -> translucent dark. */
+/* Top navbar bar (cream in light mode) -> translucent near-black. */
 :root[data-theme="dark"] .bg-\[rgba\(255\2c 251\2c 245\2c 0\.52\)\] {
-  background-color: rgba(18, 24, 41, 0.72);
+  background-color: rgba(14, 14, 22, 0.72);
 }
 
 /* Result status text (PASS/FAIL/SKIP/BLOCKED) -> brighter on dark so the
