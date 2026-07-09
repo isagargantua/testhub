@@ -2,22 +2,21 @@ package com.testhub.pages;
 
 import com.testhub.config.ConfigManager;
 import com.testhub.constants.FrameworkConstants;
-import com.testhub.utils.AlertUtils;
 import com.testhub.utils.WaitUtils;
+import com.testhub.utils.XPathUtil;
 import org.openqa.selenium.By;
 
 /**
  * Projects workspace — the grid of project cards plus the create-project modal.
- * Deleting a project triggers a native {@code window.confirm}, handled here via
- * {@link AlertUtils}.
+ * Deleting a project opens the app's custom confirm dialog (see
+ * {@link com.testhub.pages.components.ConfirmDialogComponent}); success and
+ * error feedback surfaces as transient toasts, not inline banners.
  */
 public class ProjectsPage extends BaseAppPage {
 
     private final By heading = By.xpath("//h1[normalize-space()='Projects']");
     private final By createProjectButton = buttonByText("Create Project");
     private final By modalSubmit = buttonByText("Create");
-    private final By feedbackBanner = By.xpath("//div[contains(@class,'466451')]");
-    private final By errorBanner = By.xpath("//div[contains(@class,'8b4335')]");
     private final By projectCard = By.cssSelector(".card-interactive");
 
     public ProjectsPage open() {
@@ -53,18 +52,20 @@ public class ProjectsPage extends BaseAppPage {
     }
 
     public ProjectDetailPage openProject(String name) {
-        click(cardByName(name));
-        return new ProjectDetailPage();
+        // Click the title rather than the card centre — parts of a card (e.g.
+        // the delete control) intercept clicks instead of navigating.
+        click(By.xpath(cardXpath(name) + "//h2"));
+        return new ProjectDetailPage().waitUntilLoaded();
     }
 
     public String getProjectStatus(String name) {
         return getText(By.xpath(cardXpath(name) + "//span[contains(@class,'uppercase')]"));
     }
 
-    /** Clicks Delete on a project card, accepts the confirm dialog, waits for removal. */
+    /** Clicks Delete on a project card, confirms the dialog, waits for removal. */
     public ProjectsPage deleteProject(String name) {
         click(By.xpath(cardXpath(name) + "//button[contains(normalize-space(),'Delete')]"));
-        AlertUtils.acceptAlert();
+        confirmDialog().confirm();
         WaitUtils.waitForInvisible(cardByName(name));
         return this;
     }
@@ -73,22 +74,11 @@ public class ProjectsPage extends BaseAppPage {
         return findAll(projectCard).size();
     }
 
-    public String getFeedback() {
-        return getText(feedbackBanner);
-    }
-
-    public String getError() {
-        return getText(errorBanner);
-    }
-
-    public boolean hasError() {
-        return isPresent(errorBanner);
-    }
-
     // --- locator helpers -----------------------------------------------------
 
     private String cardXpath(String name) {
-        return "//div[contains(@class,'card-interactive')][.//h2[normalize-space()='" + name + "']]";
+        return "//div[contains(@class,'card-interactive')][.//h2[normalize-space()="
+                + XPathUtil.quote(name) + "]]";
     }
 
     private By cardByName(String name) {

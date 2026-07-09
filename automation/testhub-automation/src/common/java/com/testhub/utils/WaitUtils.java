@@ -79,7 +79,11 @@ public final class WaitUtils {
         return !DriverManager.getDriver().findElements(locator).isEmpty();
     }
 
-    /** Waits until the SPA has finished its async data load (no pending fetches + DOM ready). */
+    /**
+     * Waits until {@code document.readyState === 'complete'}. Note this covers
+     * the document load only — SPA data fetches finish later, so pages should
+     * additionally wait for a concrete element (heading, card) to appear.
+     */
     public static void waitForPageReady() {
         Wait<WebDriver> fluentWait = new FluentWait<>(DriverManager.getDriver())
                 .withTimeout(ConfigManager.pageLoadTimeout())

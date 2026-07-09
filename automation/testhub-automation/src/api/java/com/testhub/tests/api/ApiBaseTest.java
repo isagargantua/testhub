@@ -6,6 +6,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.testng.annotations.BeforeClass;
 
+import java.time.Duration;
+
 /**
  * Base for pure-API tests. Unlike {@link com.testhub.tests.BaseTest} it never
  * launches a browser — these tests hit the gateway directly with RestAssured.
@@ -17,22 +19,13 @@ public abstract class ApiBaseTest {
     @BeforeClass(alwaysRun = true)
     public void warmUp() {
         if (ConfigManager.warmupEnabled()) {
-            ApiClient api = new ApiClient();
-            for (int i = 0; i < 8 && !api.isHealthy(); i++) {
-                sleep();
-            }
+            // Wake EVERY service, not just the gateway — Render's edge answers
+            // 429 for requests routed to a hibernating auth/core service.
+            ApiClient.waitUntilAllServicesHealthy(Duration.ofSeconds(120));
         }
     }
 
     protected ApiClient api() {
         return new ApiClient();
-    }
-
-    private void sleep() {
-        try {
-            Thread.sleep(3000);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
     }
 }

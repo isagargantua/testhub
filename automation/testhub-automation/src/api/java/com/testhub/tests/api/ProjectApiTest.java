@@ -7,19 +7,23 @@ import com.testhub.api.models.TestCaseDto;
 import com.testhub.enums.Priority;
 import com.testhub.utils.TestDataFactory;
 import org.testng.Assert;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 /**
  * Direct API coverage of the core domain graph (project → suite → case). These
  * also exercise the very seeding helpers the UI tests rely on, so a regression
  * in the API layer is caught here first.
+ *
+ * <p>One fresh user is registered per class, not per method — every test works
+ * on its own uniquely-named project, so they can't collide, and keeping the
+ * register count low matters against the throttled live free tier.
  */
 public class ProjectApiTest extends ApiBaseTest {
 
     private ApiClient client;
 
-    @BeforeMethod(alwaysRun = true)
+    @BeforeClass(alwaysRun = true)
     public void authenticate() {
         client = new ApiClient();
         client.register(TestDataFactory.fullName(), TestDataFactory.uniqueEmail(), TestDataFactory.password());

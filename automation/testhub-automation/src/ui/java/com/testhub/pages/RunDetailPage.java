@@ -3,7 +3,9 @@ package com.testhub.pages;
 import com.testhub.config.ConfigManager;
 import com.testhub.enums.ResultStatus;
 import com.testhub.enums.RunStatus;
+import com.testhub.pages.components.ModalComponent;
 import com.testhub.utils.WaitUtils;
+import com.testhub.utils.XPathUtil;
 import org.openqa.selenium.By;
 
 /**
@@ -73,10 +75,11 @@ public class RunDetailPage extends BaseAppPage {
     }
 
     public RunDetailPage addCaseByTitle(String title) {
-        By checkbox = By.xpath("//div[contains(@class,'fixed') and contains(@class,'z-50')]" +
-                "//label[.//span[normalize-space()='" + title + "']]//input[@type='checkbox']");
+        By checkbox = By.xpath(ModalComponent.SCOPE + "//label[.//span[normalize-space()="
+                + XPathUtil.quote(title) + "]]//input[@type='checkbox']");
         click(checkbox);
-        click(By.xpath("//button[contains(normalize-space(),'Add ') and contains(normalize-space(),'Test Case')]"));
+        click(By.xpath(ModalComponent.SCOPE
+                + "//button[contains(normalize-space(),'Add ') and contains(normalize-space(),'Test Case')]"));
         modal().waitUntilClosed();
         WaitUtils.waitForVisible(caseCard(title));
         return this;
@@ -88,7 +91,8 @@ public class RunDetailPage extends BaseAppPage {
     }
 
     private String caseXpath(String title) {
-        return "//div[contains(@class,'card')][.//h2[normalize-space()='" + title + "']]";
+        return "//div[contains(@class,'card')][.//h2[normalize-space()="
+                + XPathUtil.quote(title) + "]]";
     }
 
     private By caseCard(String title) {

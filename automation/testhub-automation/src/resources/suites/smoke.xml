@@ -23,7 +23,10 @@
         </packages>
     </test>
 
+    <!-- Only the throttle-free hybrid test carries the smoke group; the
+         register-based one stays out of smoke to avoid the live 429 limit. -->
     <test name="Smoke-Hybrid">
+        <groups><run><include name="smoke"/></run></groups>
         <packages>
             <package name="com.testhub.tests.hybrid"/>
         </packages>

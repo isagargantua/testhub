@@ -20,9 +20,8 @@ public abstract class HybridBaseTest extends BaseTest {
 
     @BeforeClass(alwaysRun = true)
     public void warmUpApi() {
-        ApiClient api = new ApiClient();
-        for (int i = 0; i < 8 && !api.isHealthy(); i++) {
-            sleep();
+        if (ConfigManager.warmupEnabled()) {
+            ApiClient.waitUntilAllServicesHealthy(java.time.Duration.ofSeconds(120));
         }
     }
 
@@ -36,13 +35,5 @@ public abstract class HybridBaseTest extends BaseTest {
         JavaScriptUtils.setLocalStorage(FrameworkConstants.LS_ACCESS_TOKEN, auth.accessToken);
         JavaScriptUtils.setLocalStorage(FrameworkConstants.LS_REFRESH_TOKEN, auth.refreshToken);
         DriverManager.getDriver().get(ConfigManager.baseUrl() + FrameworkConstants.ROUTE_DASHBOARD);
-    }
-
-    private void sleep() {
-        try {
-            Thread.sleep(3000);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
     }
 }

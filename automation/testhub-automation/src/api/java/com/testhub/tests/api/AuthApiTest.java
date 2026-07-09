@@ -2,6 +2,7 @@ package com.testhub.tests.api;
 
 import com.testhub.api.ApiClient;
 import com.testhub.api.models.AuthResponse;
+import com.testhub.config.ConfigManager;
 import com.testhub.exceptions.FrameworkException;
 import com.testhub.utils.TestDataFactory;
 import org.testng.Assert;
@@ -20,13 +21,12 @@ public class AuthApiTest extends ApiBaseTest {
     }
 
     @Test(groups = {"api", "smoke"},
-            description = "A registered user can log in and receive a token")
+            description = "An existing user can log in and receive a token")
     public void loginSucceedsWithValidCredentials() {
-        String email = TestDataFactory.uniqueEmail();
-        String password = TestDataFactory.password();
-        api().register(TestDataFactory.fullName(), email, password);
-
-        AuthResponse auth = new ApiClient().login(email, password);
+        // Uses the standing tester account: login needs no fresh registration,
+        // and skipping register avoids the live free-tier throttle entirely.
+        String email = ConfigManager.testerEmail();
+        AuthResponse auth = new ApiClient().login(email, ConfigManager.testerPassword());
         Assert.assertNotNull(auth.accessToken, "Login should return an access token");
         Assert.assertEquals(auth.user.email, email.toLowerCase(), "Returned email should match");
     }
@@ -34,11 +34,8 @@ public class AuthApiTest extends ApiBaseTest {
     @Test(groups = {"api", "regression"},
             description = "Login with a wrong password is rejected with 401")
     public void loginFailsWithWrongPassword() {
-        String email = TestDataFactory.uniqueEmail();
-        api().register(TestDataFactory.fullName(), email, TestDataFactory.password());
-
         FrameworkException ex = Assert.expectThrows(FrameworkException.class,
-                () -> new ApiClient().login(email, "WrongPassword123"));
+                () -> new ApiClient().login(ConfigManager.testerEmail(), "WrongPassword123"));
         Assert.assertTrue(ex.getMessage().contains("401"), "Should fail with HTTP 401");
     }
 

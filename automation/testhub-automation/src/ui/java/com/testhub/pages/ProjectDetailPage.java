@@ -56,8 +56,9 @@ public class ProjectDetailPage extends BaseAppPage {
     }
 
     public SuiteDetailPage openSuite(String name) {
-        click(suiteCard(name));
-        return new SuiteDetailPage();
+        // Click the title rather than the card centre — see ProjectsPage.openProject.
+        click(By.xpath(suiteXpath(name) + "//h2"));
+        return new SuiteDetailPage().waitUntilLoaded();
     }
 
     public ProjectDetailPage deleteSuite(String name) {
@@ -72,7 +73,8 @@ public class ProjectDetailPage extends BaseAppPage {
     }
 
     private String suiteXpath(String name) {
-        return "//div[contains(@class,'card-interactive')][.//h2[normalize-space()='" + name + "']]";
+        return "//div[contains(@class,'card-interactive')][.//h2[normalize-space()="
+                + com.testhub.utils.XPathUtil.quote(name) + "]]";
     }
 
     private By suiteCard(String name) {

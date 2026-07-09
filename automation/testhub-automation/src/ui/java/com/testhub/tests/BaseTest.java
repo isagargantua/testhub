@@ -60,7 +60,13 @@ public abstract class BaseTest {
     public void tearDown(ITestResult result) {
         // Capture the screenshot BEFORE quitting — TestNG fires listeners after
         // @AfterMethod, by which point the driver would already be gone.
-        ScreenshotUtils.captureAndStore();
+        if (!result.isSuccess() || ConfigManager.screenshotOnSuccess()) {
+            ScreenshotUtils.captureAndStore();
+        } else {
+            // Nothing to report for this test; make sure a stale screenshot from a
+            // previous test on this thread can't leak into the report.
+            ScreenshotUtils.clearStored();
+        }
         attachScreenshotToAllure(result);
         DriverManager.quitDriver();
     }
@@ -91,10 +97,11 @@ public abstract class BaseTest {
         return login;
     }
 
-    /** Opens the registration screen (waking services once on the way in). */
+    /** Opens the registration screen, waking cold-start services once per suite. */
     protected RegisterPage openRegisterPage() {
-        openLoginPage();
-        return new RegisterPage().open();
+        RegisterPage register = new RegisterPage().open();
+        wakeServicesOnce(register);
+        return register;
     }
 
     /** Registers a brand-new TESTER through the UI form and lands on the dashboard. */
@@ -129,7 +136,7 @@ public abstract class BaseTest {
         return loginViaUi(ConfigManager.adminEmail(), ConfigManager.adminPassword());
     }
 
-    private void wakeServicesOnce(LoginPage login) {
+    private void wakeServicesOnce(com.testhub.pages.AuthPage authPage) {
         if (servicesWoken) {
             return;
         }
@@ -137,7 +144,7 @@ public abstract class BaseTest {
             if (servicesWoken) {
                 return;
             }
-            login.wakeServicesAndWait(); // returns immediately if services are already up
+            authPage.wakeServicesAndWait(); // returns immediately if services are already up
             servicesWoken = true;
         }
     }

@@ -23,8 +23,6 @@ public final class FrameworkConstants {
     public static final String SCREENSHOT_DIR = Paths.get(OUTPUT_DIR, "screenshots").toString();
     public static final String DOWNLOAD_DIR = Paths.get(OUTPUT_DIR, "downloads").toString();
 
-    public static final String REPORT_NAME = "testhub-extent-report.html";
-
     // --- Application routes (relative to base.url) ---------------------------
     public static final String ROUTE_LOGIN = "/login";
     public static final String ROUTE_REGISTER = "/register";

@@ -93,24 +93,62 @@ public class ApiClient {
     }
 
     /**
-     * Pings all three service health endpoints independently.
-     * Returns true only when every service replies {"status":"ok"}.
+     * Polls the gateway /health until it responds or the timeout elapses.
+     * Absorbs the free-tier cold start before the first real request.
+     *
+     * @return true when the gateway became healthy within the budget
      */
-    public static boolean allServicesHealthy() {
-        String[] urls = {
-            "https://testhub-auth-service.onrender.com/health",
-            "https://testhub-gateway.onrender.com/health",
-            "https://testhub-core-service.onrender.com/health"
-        };
-        for (String url : urls) {
-            try {
-                int code = given().get(url).statusCode();
-                if (code != 200) return false;
-            } catch (Exception e) {
+    public boolean waitUntilHealthy(java.time.Duration timeout) {
+        long deadline = System.currentTimeMillis() + timeout.toMillis();
+        while (!isHealthy()) {
+            if (System.currentTimeMillis() >= deadline) {
+                log.warn("Gateway not healthy after {} s — continuing anyway", timeout.toSeconds());
                 return false;
             }
+            sleepMillis(3000);
         }
         return true;
+    }
+
+    /**
+     * Pings every configured health endpoint ({@code health.check.urls},
+     * defaults to the gateway's /health). Returns true only when all answer 200.
+     * Deliberately does NOT short-circuit: on the free tier each ping is what
+     * triggers that service's wake-up, so one pass starts all of them waking.
+     */
+    public static boolean allServicesHealthy() {
+        boolean allUp = true;
+        for (String url : ConfigManager.healthCheckUrls()) {
+            try {
+                if (given().get(url).statusCode() != 200) {
+                    allUp = false;
+                }
+            } catch (Exception e) {
+                allUp = false;
+            }
+        }
+        return allUp;
+    }
+
+    /**
+     * Polls all configured health endpoints until every service answers 200 or
+     * the timeout elapses. This is the API-side equivalent of the login page's
+     * "Wake services" button: Render's edge rate-limits (429) requests routed
+     * to a hibernating service, so real calls must wait for this.
+     */
+    public static boolean waitUntilAllServicesHealthy(java.time.Duration timeout) {
+        long deadline = System.currentTimeMillis() + timeout.toMillis();
+        while (System.currentTimeMillis() < deadline) {
+            if (allServicesHealthy()) {
+                return true;
+            }
+            sleepMillis(3000);
+        }
+        boolean healthy = allServicesHealthy();
+        if (!healthy) {
+            log.warn("Not all services healthy after {} s — continuing anyway", timeout.toSeconds());
+        }
+        return healthy;
     }
 
     /**
@@ -130,19 +168,63 @@ public class ApiClient {
     // --- auth ----------------------------------------------------------------
 
     public AuthResponse register(String name, String email, String password) {
-        Response response = base().body(Map.of("name", name, "email", email, "password", password))
-                .post("/api/auth/register");
+        Response response = postWithThrottleRetry("/api/auth/register",
+                Map.of("name", name, "email", email, "password", password), "register");
         AuthResponse auth = ensure2xx(response, "register").as(AuthResponse.class);
         this.token = auth.accessToken;
         return auth;
     }
 
     public AuthResponse login(String email, String password) {
-        Response response = base().body(Map.of("email", email, "password", password))
-                .post("/api/auth/login");
+        Response response = postWithThrottleRetry("/api/auth/login",
+                Map.of("email", email, "password", password), "login");
         AuthResponse auth = ensure2xx(response, "login").as(AuthResponse.class);
         this.token = auth.accessToken;
         return auth;
+    }
+
+    /**
+     * POSTs the body, retrying (bounded) when the live free tier answers 429.
+     * Honors the {@code Retry-After} header when present, otherwise backs off
+     * 10 s, then 20 s — a hibernating Render service needs ~25 s to wake. Any
+     * non-429 response is returned as-is for the caller's status handling —
+     * this only smooths over infrastructure throttling.
+     */
+    private Response postWithThrottleRetry(String path, Map<String, ?> body, String action) {
+        final int maxAttempts = 3;
+        Response response = null;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            response = base().body(body).post(path);
+            if (response.statusCode() != 429 || attempt == maxAttempts) {
+                return response;
+            }
+            long waitSeconds = retryAfterSeconds(response, 10L * attempt);
+            log.warn("API {} throttled (HTTP 429) — retrying in {} s (attempt {}/{})",
+                    action, waitSeconds, attempt, maxAttempts);
+            sleepMillis(waitSeconds * 1000);
+        }
+        return response;
+    }
+
+    private static long retryAfterSeconds(Response response, long fallback) {
+        String header = response.getHeader("Retry-After");
+        if (header != null) {
+            try {
+                // Cap so a hostile/huge value can't stall the suite.
+                return Math.min(Long.parseLong(header.trim()), 30);
+            } catch (NumberFormatException ignored) {
+                // Fall through to the computed backoff.
+            }
+        }
+        return fallback;
+    }
+
+    private static void sleepMillis(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     /** Logs in if the account exists, otherwise registers it. Handy for seeded users. */

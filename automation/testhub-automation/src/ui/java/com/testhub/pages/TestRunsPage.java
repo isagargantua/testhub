@@ -2,7 +2,9 @@ package com.testhub.pages;
 
 import com.testhub.config.ConfigManager;
 import com.testhub.enums.RunStatus;
+import com.testhub.pages.components.ModalComponent;
 import com.testhub.utils.WaitUtils;
+import com.testhub.utils.XPathUtil;
 import org.openqa.selenium.By;
 
 import java.util.List;
@@ -55,7 +57,8 @@ public class TestRunsPage extends BaseAppPage {
     }
 
     public void selectCaseByTitle(String title) {
-        By checkbox = By.xpath("//label[.//span[normalize-space()='" + title + "']]//input[@type='checkbox']");
+        By checkbox = By.xpath(ModalComponent.SCOPE + "//label[.//span[normalize-space()="
+                + XPathUtil.quote(title) + "]]//input[@type='checkbox']");
         click(checkbox);
     }
 
@@ -64,8 +67,10 @@ public class TestRunsPage extends BaseAppPage {
     }
 
     public RunDetailPage openRun(String name) {
-        click(runCard(name));
-        return new RunDetailPage();
+        // Click the title, not the card: the card's status/footer rows swallow
+        // clicks (stopPropagation), and the card's centre point can land there.
+        click(By.xpath(runXpath(name) + "//h2"));
+        return new RunDetailPage().waitUntilLoaded();
     }
 
     public TestRunsPage setRunStatus(String runName, RunStatus status) {
@@ -86,7 +91,8 @@ public class TestRunsPage extends BaseAppPage {
     }
 
     private String runXpath(String name) {
-        return "//div[contains(@class,'card-interactive')][.//h2[normalize-space()='" + name + "']]";
+        return "//div[contains(@class,'card-interactive')][.//h2[normalize-space()="
+                + XPathUtil.quote(name) + "]]";
     }
 
     private By runCard(String name) {

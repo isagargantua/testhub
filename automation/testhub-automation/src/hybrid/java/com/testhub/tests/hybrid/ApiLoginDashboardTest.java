@@ -36,7 +36,7 @@ public class ApiLoginDashboardTest extends HybridBaseTest {
         // 3. VERIFY through the real UI that the dashboard reflects the seeded data.
         DashboardPage dashboard = new DashboardPage().open();
         Assert.assertTrue(dashboard.isLoaded(), "Dashboard should load for the API-authenticated user");
-        Assert.assertEquals(dashboard.getStatValue("Projects"), "2",
+        Assert.assertEquals(dashboard.waitForStatValue("Projects", "2"), "2",
                 "Dashboard Projects KPI should reflect the two API-seeded projects");
     }
 }

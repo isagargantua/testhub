@@ -126,5 +126,22 @@ too when `screenshot.on.success=true`). Other artifacts: `test-output/screenshot
 | **API** (`api/`) | Auth (register/login/negative/duplicate) and the project → suite → case graph |
 | **Hybrid** (`hybrid/`) | API login + API-seeded projects, verified on the dashboard through the UI |
 
-> Note: the live free tier rate-limits `/api/auth/register`; for back-to-back full
-> runs prefer a local backend (see the local-stack command above).
+### Living with the free-tier throttle
+
+Render's edge answers **HTTP 429** for requests routed to a *hibernating*
+service (`x-render-routing: hibernate-rate-limited`) — it is not the app's own
+rate limiter. The framework defends in three layers:
+
+1. **Warm-up wakes everything** — before any API/hybrid class runs, every URL
+   in `health.check.urls` (gateway, auth, core) is polled until healthy, which
+   is also what wakes them. UI tests wake services through the login screen's
+   on-page "Wake them" button instead, once per suite.
+2. **Bounded 429 backoff** — `ApiClient` retries a throttled register/login up
+   to 3 times (honouring `Retry-After` when present).
+3. **Register frugally** — API login tests use the standing tester account,
+   `ProjectApiTest` registers one user per class (unique project names keep
+   tests isolated), and only the throttle-free hybrid test is in the smoke set.
+
+For heavy back-to-back full runs, a local backend
+(`-Dbase.url=http://localhost:5173 -Dapi.base.url=http://localhost:3000`)
+remains the most comfortable option.

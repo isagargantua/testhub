@@ -2,7 +2,9 @@ package com.testhub.pages;
 
 import com.testhub.config.ConfigManager;
 import com.testhub.enums.Priority;
+import com.testhub.pages.components.ModalComponent;
 import com.testhub.utils.WaitUtils;
+import com.testhub.utils.XPathUtil;
 import org.openqa.selenium.By;
 
 /**
@@ -13,7 +15,10 @@ public class SuiteDetailPage extends BaseAppPage {
 
     private final By heading = By.xpath("//h1[normalize-space()='Test Cases']");
     private final By createCaseButton = buttonByText("Create Test Case");
-    private final By modalSubmit = buttonByText("Create Test Case");
+    // The modal submit shares its text with the page-level button, so scope it
+    // to the open modal overlay.
+    private final By modalSubmit = By.xpath(ModalComponent.SCOPE
+            + "//button[contains(normalize-space(),'Create Test Case')]");
 
     public SuiteDetailPage open(String suiteId) {
         driver().get(ConfigManager.baseUrl() + "/suites/" + suiteId);
@@ -40,10 +45,7 @@ public class SuiteDetailPage extends BaseAppPage {
         type(fieldByLabel("Steps"), steps);
         type(fieldByLabel("Expected Result"), expected);
         selectByValue(fieldByLabel("Priority"), priority.name());
-        // The modal submit and the page button share text; the modal one is the
-        // last matching button, so scope to the open dialog.
-        click(By.xpath("//div[contains(@class,'fixed') and contains(@class,'z-50')]" +
-                "//button[contains(normalize-space(),'Create Test Case')]"));
+        click(modalSubmit);
         modal().waitUntilClosed();
         WaitUtils.waitForVisible(caseCard(title));
         return this;
@@ -69,7 +71,8 @@ public class SuiteDetailPage extends BaseAppPage {
     }
 
     private String caseXpath(String title) {
-        return "//div[contains(@class,'card')][.//h2[normalize-space()='" + title + "']]";
+        return "//div[contains(@class,'card')][.//h2[normalize-space()="
+                + XPathUtil.quote(title) + "]]";
     }
 
     private By caseCard(String title) {

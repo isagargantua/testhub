@@ -118,6 +118,24 @@ public final class ConfigManager {
         return Boolean.parseBoolean(get("warmup.enabled", "true"));
     }
 
+    /** How long the on-page "Wake services" flow may take before we move on. */
+    public static Duration wakeTimeout() {
+        return Duration.ofSeconds(Long.parseLong(get("wake.timeout.seconds", "90")));
+    }
+
+    /**
+     * Health endpoints polled by {@link com.testhub.api.ApiClient#allServicesHealthy()}.
+     * Comma-separated; defaults to the gateway's /health so local runs work out
+     * of the box. Point at all three live services via config for deep checks.
+     */
+    public static String[] healthCheckUrls() {
+        String urls = get("health.check.urls", apiBaseUrl() + "/health");
+        return java.util.Arrays.stream(urls.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toArray(String[]::new);
+    }
+
     /** Which report(s) to produce: {@code extent}, {@code allure}, or {@code both}. */
     public static String reportType() {
         return get("report.type", "both").toLowerCase();

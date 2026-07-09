@@ -36,9 +36,23 @@ public class DashboardPage extends BaseAppPage {
     /** Reads a KPI stat card value by its title (Projects / Test Cases / Runs / Pass Rate).
      *  In {@code StatsCard} the value is the sibling that follows the eyebrow title. */
     public String getStatValue(String title) {
-        By value = By.xpath("//div[contains(@class,'eyebrow') and normalize-space()='" + title + "']" +
-                "/following-sibling::div[contains(@class,'display-title')]");
-        return getText(value);
+        return getText(statValueLocator(title));
+    }
+
+    /**
+     * Waits until a KPI card shows the expected value, then returns it. Stat
+     * values render through a count-up animation, so an immediate read can catch
+     * an intermediate number — assertions should go through this instead.
+     */
+    public String waitForStatValue(String title, String expected) {
+        WaitUtils.waitForTextPresent(statValueLocator(title), expected);
+        return getStatValue(title);
+    }
+
+    private By statValueLocator(String title) {
+        return By.xpath("//div[contains(@class,'eyebrow') and normalize-space()="
+                + com.testhub.utils.XPathUtil.quote(title)
+                + "]/following-sibling::div[contains(@class,'display-title')]");
     }
 
     /** Clicks a status chip in the Result Breakdown legend (PASS/FAIL/SKIP/BLOCKED). */

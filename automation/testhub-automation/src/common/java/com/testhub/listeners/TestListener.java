@@ -40,8 +40,8 @@ public class TestListener implements ITestListener, ISuiteListener {
     @Override
     public void onFinish(ISuite suite) {
         ExtentManager.flush();
-        log.info("===== Suite finished: {} — report at {} =====",
-                suite.getName(), "test-output/reports/" + com.testhub.constants.FrameworkConstants.REPORT_NAME);
+        log.info("===== Suite finished: {} — report in test-output/reports/Latest/ =====",
+                suite.getName());
     }
 
     @Override

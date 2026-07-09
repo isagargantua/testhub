@@ -11,9 +11,11 @@ import org.openqa.selenium.By;
  */
 public class ModalComponent extends BasePage {
 
-    private final By modalRoot = By.xpath("//div[contains(@class,'fixed') and contains(@class,'z-50')]" +
-            "//div[contains(@class,'card')]");
-    private final By title = By.xpath("//div[contains(@class,'fixed') and contains(@class,'z-50')]//h2");
+    /** XPath prefix that scopes a locator to the open modal overlay. */
+    public static final String SCOPE = "//div[contains(@class,'fixed') and contains(@class,'z-50')]";
+
+    private final By modalRoot = By.xpath(SCOPE + "//div[contains(@class,'card')]");
+    private final By title = By.xpath(SCOPE + "//h2");
     private final By closeButton = buttonByText("Close");
 
     public boolean isOpen() {

@@ -3,6 +3,7 @@ package com.testhub.pages;
 import com.testhub.driver.DriverManager;
 import com.testhub.utils.JavaScriptUtils;
 import com.testhub.utils.WaitUtils;
+import com.testhub.utils.XPathUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.openqa.selenium.By;
@@ -102,15 +103,19 @@ public abstract class BasePage {
     }
 
     // --- shared locator builders --------------------------------------------
-    // testHub forms render <label>Text</label> immediately followed by the
-    // control, so a form field is reliably located by its label text.
+    // All dynamic text goes through XPathUtil.quote() so names containing
+    // quotes (Faker loves apostrophes) can never produce an invalid XPath.
 
+    /**
+     * Locates a form control by its visible label. Works for the in-app modal
+     * forms, where the control is the label's direct following sibling.
+     */
     protected By fieldByLabel(String label) {
-        return By.xpath("//label[normalize-space()='" + label
-                + "']/following-sibling::*[self::input or self::textarea or self::select][1]");
+        return By.xpath("//label[normalize-space()=" + XPathUtil.quote(label)
+                + "]/following-sibling::*[self::input or self::textarea or self::select][1]");
     }
 
     protected By buttonByText(String text) {
-        return By.xpath("//button[normalize-space()='" + text + "']");
+        return By.xpath("//button[normalize-space()=" + XPathUtil.quote(text) + "]");
     }
 }

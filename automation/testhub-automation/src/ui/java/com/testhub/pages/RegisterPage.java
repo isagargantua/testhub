@@ -6,18 +6,19 @@ import com.testhub.utils.WaitUtils;
 import org.openqa.selenium.By;
 
 /**
- * The account-creation screen. Fields have no test ids, so we locate them by
- * their visible labels (Name / Email / Password / Confirm password).
+ * The account-creation screen. Every field and the submit button expose
+ * {@code data-testid} hooks — locate by those, never by label position or
+ * button copy (both changed in the last redesign and will change again).
+ * The error banner and wake-services flow are inherited from {@link AuthPage}.
  */
-public class RegisterPage extends BasePage {
+public class RegisterPage extends AuthPage {
 
-    private final By nameInput = fieldByLabel("Name");
-    private final By emailInput = fieldByLabel("Email");
-    private final By passwordInput = fieldByLabel("Password");
-    private final By confirmInput = fieldByLabel("Confirm password");
-    private final By submitButton = buttonByText("Create Account");
-    private final By errorBanner = By.xpath("//div[contains(@class,'8b4335')]");
-    private final By loginLink = By.xpath("//a[normalize-space()='Log in']");
+    private final By nameInput    = By.cssSelector("[data-testid='register-name']");
+    private final By emailInput   = By.cssSelector("[data-testid='register-email']");
+    private final By passwordInput = By.cssSelector("[data-testid='register-password']");
+    private final By confirmInput = By.cssSelector("[data-testid='register-confirm']");
+    private final By submitButton = By.cssSelector("[data-testid='register-submit']");
+    private final By loginLink    = By.cssSelector("a[href='/login']");
 
     public RegisterPage open() {
         driver().get(ConfigManager.baseUrl() + FrameworkConstants.ROUTE_REGISTER);
@@ -62,14 +63,6 @@ public class RegisterPage extends BasePage {
         submit(name, email, password, password);
         WaitUtils.waitForUrlToBe(ConfigManager.baseUrl() + "/");
         return new DashboardPage().waitUntilLoaded();
-    }
-
-    public String getErrorMessage() {
-        return getText(errorBanner);
-    }
-
-    public boolean isErrorDisplayed() {
-        return isDisplayed(errorBanner);
     }
 
     public LoginPage goToLogin() {

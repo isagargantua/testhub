@@ -57,11 +57,12 @@ public class EndToEndWorkflowTest extends BaseTest {
         Assert.assertEquals(runDetail.getResultStatus(caseTitle), "PASS", "Case should be PASS");
         Assert.assertEquals(runDetail.getSummaryCount("PASS"), 1, "PASS summary should be 1");
 
-        // 6. The dashboard should now reflect the activity.
+        // 6. The dashboard should now reflect the activity. Stat values animate
+        // (count-up), so wait for the expected value rather than reading instantly.
         DashboardPage finalDashboard = new DashboardPage().open();
-        Assert.assertEquals(finalDashboard.getStatValue("Projects"), "1", "One project exists");
-        Assert.assertEquals(finalDashboard.getStatValue("Runs"), "1", "One run exists");
-        Assert.assertEquals(finalDashboard.getStatValue("Pass Rate"), "100%",
+        Assert.assertEquals(finalDashboard.waitForStatValue("Projects", "1"), "1", "One project exists");
+        Assert.assertEquals(finalDashboard.waitForStatValue("Runs", "1"), "1", "One run exists");
+        Assert.assertEquals(finalDashboard.waitForStatValue("Pass Rate", "100%"), "100%",
                 "A single PASS result means a 100% pass rate");
     }
 }

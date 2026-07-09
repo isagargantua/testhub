@@ -18,7 +18,7 @@ public class DashboardTest extends BaseTest {
         DashboardPage dashboard = signUpFreshUser();
 
         Assert.assertTrue(dashboard.isLoaded(), "Dashboard should load");
-        Assert.assertEquals(dashboard.getStatValue("Projects"), "0", "No projects yet");
-        Assert.assertEquals(dashboard.getStatValue("Runs"), "0", "No runs yet");
+        Assert.assertEquals(dashboard.waitForStatValue("Projects", "0"), "0", "No projects yet");
+        Assert.assertEquals(dashboard.waitForStatValue("Runs", "0"), "0", "No runs yet");
     }
 }

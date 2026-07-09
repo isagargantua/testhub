@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Reads JSON test-data files from {@code src/test/resources/testdata}. Powers
+ * Reads JSON test-data files from {@code src/resources/testdata}. Powers
  * the data-driven half of the framework: a TestNG {@code @DataProvider} can
  * hand each row of a JSON array to a test method.
  */
