@@ -103,7 +103,13 @@
       "Bash(curl -s -m 3 -o /dev/null -w \"%{http_code}\" http://localhost:5173)",
       "Bash(mvn -q allure:report)",
       "Bash(mvn -q validate)",
-      "Bash(python -c \"import pypdf; print\\('pypdf', pypdf.__version__\\)\")"
+      "Bash(python -c \"import pypdf; print\\('pypdf', pypdf.__version__\\)\")",
+      "Bash(gh --version)",
+      "Bash(gh auth *)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(gh pr *)",
+      "mcp__visualize__read_me",
+      "Bash(git mv *)"
     ]
   }
 }

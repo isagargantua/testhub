@@ -7,6 +7,18 @@
       "runtimeArgs": ["run", "dev"],
       "cwd": "frontend",
       "port": 5173
+    },
+    {
+      "name": "greensm-landing",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["-y", "serve", "-l", "4178", "D:/AI-Testing/greensm-landing"],
+      "port": 4178
+    }
+    ,{
+      "name": "greensm",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["-y", "serve", "-l", "4179", "D:/AiBizz/green-sm"],
+      "port": 4179
     }
   ]
 }

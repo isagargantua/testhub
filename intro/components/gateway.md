@@ -9,9 +9,10 @@ the right backend service, enforce CORS, and serve interactive API docs.
 - **Reverse proxy** (via `http-proxy-middleware`):
   - `/api/auth/*` → **auth-service** (`AUTH_SERVICE_URL`)
   - `/api/projects`, `/api/suites`, `/api/testcases`, `/api/runs`,
-    `/api/dashboard` → **core-service** (`CORE_SERVICE_URL`)
+    `/api/dashboard`, `/api/dumps` → **core-service** (`CORE_SERVICE_URL`)
 - **CORS** allow-list built from `FRONTEND_URL` + `CORS_ORIGIN` (+ localhost).
-- **`GET /health`** — liveness probe (also used by the keep-warm workflow).
+- **`GET /health`** — liveness probe (also used by the keep-warm workflow and
+  automation warm-up logic).
 - **`GET /docs`** — Swagger UI; **`GET /openapi.json`** — raw OpenAPI 3 spec.
   Mounted *before* the proxy so they're served locally, not forwarded.
 

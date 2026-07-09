@@ -8,8 +8,9 @@
 
 This document is the single best place for a new engineer (or an AI agent picking
 up the project) to understand the whole system. Component deep-dives live in
-[`docs/components/`](./components), and the build story is in
-[`PROJECT_STORY.md`](./PROJECT_STORY.md).
+[`intro/components/`](./components), and the build story is in
+[`PROJECT_STORY.md`](./PROJECT_STORY.md). For an exhaustive, file-by-file
+walkthrough of the whole repo, see [`deep-dive/`](../deep-dive).
 
 ---
 
@@ -31,7 +32,7 @@ proxies to two backend services backed by one PostgreSQL database.
                           │ /docs (Swagger) · /health    │
                           └───────┬───────────────┬──────┘
                  /api/auth/*      │               │   /api/projects, /suites,
-                                  ▼               ▼   /testcases, /runs, /dashboard
+                                  ▼               ▼   /testcases, /runs, /dashboard, /dumps
                    ┌────────────────────┐   ┌────────────────────┐
                    │    auth-service    │   │    core-service    │
                    │ Express · Prisma   │   │ Express · Prisma   │
@@ -107,11 +108,16 @@ testHub/
 │       ├── main.jsx           # entry; fires cold-start warm-up before mount
 │       ├── App.jsx            # routes + ThemeProvider + AuthProvider
 │       ├── index.css          # design system + dark-mode layer + hover styles
-│       ├── api/               # axios client (cold-start retry) + per-resource APIs
+│       ├── api/               # axios client (cold-start retry, cancel support)
+│       │                      # auth, projects, suites, testcases, runs,
+│       │                      # dashboard, users, dumps, warmup, tokenStorage
 │       ├── context/           # AuthContext, ThemeContext
-│       ├── components/        # Layout, Navbar, Sidebar, Modal, Badge, ThemeToggle…
+│       ├── components/        # Layout, Navbar, Sidebar, Modal, Badge, ThemeToggle,
+│       │                      # MascotStage, Toast, ConfirmDialog, CommandPalette,
+│       │                      # EmptyState, Skeleton, StatsCard, CountUp, Pagination
 │       └── pages/             # Login, Register, Dashboard, Projects, ProjectDetail,
-│                              # SuiteDetail, TestRuns, RunDetail, Users
+│                              # SuiteDetail, TestRuns, RunDetail, Users,
+│                              # AllTestCases, Dump (File Storage)
 │
 ├── automation/               # Test automation frameworks (practice deliverables)
 │   ├── selenium-testhub/      # Selenium 4 + TestNG, Page Object Model
@@ -121,7 +127,8 @@ testHub/
 ├── postman/                  # Postman smoke-test collection
 ├── .github/workflows/        # keep-warm.yml (pings /health to fight cold starts)
 ├── render.yaml               # Render service definitions
-└── docs/                     # ← you are here
+├── intro/                   # ← you are here (high-level docs)
+└── deep-dive/               # exhaustive, file-by-file walkthrough
 ```
 
 ---
@@ -130,19 +137,24 @@ testHub/
 
 ```
 User (auth-service DB)
-  id, email, name, passwordHash, role(ADMIN|TESTER|VIEWER)
+  id, email, name, passwordHash, role(ADMIN|TESTER)
 
 Project 1───* TestSuite 1───* TestCase 1───* TestResult *───1 TestRun
   │                                                              │
   └──────────────────────── 1 ────* TestRun ────────────────────┘
 
-Project(id, name, description, status[ACTIVE|ARCHIVED], createdById)
+User 1───* DumpItem   (file storage vault — per-admin isolated)
+
+Project(id, name, description, status[ACTIVE|ARCHIVED], createdById →User)
 TestSuite(id, name, description, projectId →Project)               [cascade delete]
-TestCase(id, title, steps, expected, priority, status, tags[], suiteId →TestSuite)
+TestCase(id, title, steps, expected, priority[CRITICAL|HIGH|MEDIUM|LOW],
+         status[ACTIVE|ARCHIVED], suiteId →TestSuite)
 TestRun(id, name, status[IN_PROGRESS|COMPLETED|ABORTED],
         selectedCaseIds[], projectId →Project)
-TestResult(id, status[PASS|FAIL|SKIP|BLOCKED], comment,
+TestResult(id, status[PASS|FAIL|SKIP|BLOCKED|PENDING], comment,
            testCaseId →TestCase, runId →TestRun)  @@unique(runId, testCaseId)
+DumpItem(id, filename, mimeType, sizeBytes, kind[IMAGE|ARCHIVE|TEXT|OTHER],
+         notes, content[bytea], uploadedById →User)
 ```
 
 - A **run** can be _scoped_ to a subset of a project's test cases via
@@ -150,6 +162,9 @@ TestResult(id, status[PASS|FAIL|SKIP|BLOCKED], comment,
 - A **result** is an upsert keyed by `(runId, testCaseId)` — re-marking a case
   updates the existing result rather than duplicating it.
 - Deleting a project cascades to its suites, cases, runs, and results.
+- **DumpItem** files are stored as raw bytes in Postgres (bytea column). Each admin
+  has a soft cap (200 MB total, 40 MB per file). Per-admin isolation is enforced
+  at the query level — every dump query filters by `uploadedById = req.user.id`.
 
 ---
 
@@ -234,7 +249,8 @@ cd frontend     && npm install && npm run dev      # :5173
 # Frontend talks to the gateway via VITE_API_URL (defaults to http://localhost:3000)
 ```
 
-See [`docs/components/`](./components) for each service's env vars and routes.
+See [`intro/components/`](./components) for each service's env vars and routes,
+or [`deep-dive/`](../deep-dive) for a full file-by-file walkthrough.
 
 ```
 

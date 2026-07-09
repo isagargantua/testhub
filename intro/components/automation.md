@@ -40,6 +40,42 @@ project's reason for existing (a practice target) and as portfolio pieces.
 - All three warm the free-tier services before running and retry transient
   cold-start failures.
 
+## data-testid availability
+
+Login and Register pages **do** have `data-testid` attributes (added after the
+frameworks were initially written):
+
+| Element | data-testid |
+|---|---|
+| Login email | `login-email` |
+| Login password | `login-password` |
+| Login submit | `login-submit` |
+| Wake services button | `wake-services` |
+| Wake status message | `wake-status` |
+| Register name | `register-name` |
+| Register email | `register-email` |
+| Register password | `register-password` |
+| Register confirm | `register-confirm` |
+| Register submit | `register-submit` |
+
+All other pages (Dashboard, Projects, Users, Dump, etc.) do not yet have
+`data-testid` hooks — use role/label/visible-text selectors for those.
+
+## Key automation gotchas (from building the frameworks)
+
+- **Confirm dialogs are custom React modals, NOT `window.confirm`.** Playwright's
+  `page.onDialog()` does NOT fire. Selenium's `alertIsPresent` does NOT fire.
+  Interact with the modal's "Delete" / "Confirm" button directly.
+- **Cold starts on Render free tier** (~24–90 s on first wake). Always warm
+  services before the suite; use a retry analyzer for transient failures.
+- **Rate limiting on `/api/auth/register`** when run in bursts. Run user-creation
+  calls serially, not in parallel.
+- **First registered user = ADMIN.** Control test DB state or seed an admin
+  before running RBAC tests.
+- **Toast notifications** (not inline text) carry success/error feedback. Assert
+  the toast element, not an inline div.
+- **Sidebar may collapse** — if elements are off-screen, send `Ctrl+B` to expand.
+
 ## Run
 ```bash
 cd automation/<framework>
