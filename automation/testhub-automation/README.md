@@ -71,6 +71,10 @@ The two hybrid tests mirror this split:
 
 ## 3. Running
 
+> 📘 **Full guide:** [RUNNING_TESTS.md](RUNNING_TESTS.md) — every suite/class/method,
+> Eclipse & VS Code walkthroughs, the complete execution lifecycle, all config
+> knobs, report locations, and troubleshooting.
+
 ```bash
 mvn test                 # default = regression (UI + API + hybrid)
 mvn test -Pui            # pure-UI tests only
