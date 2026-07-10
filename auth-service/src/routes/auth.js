@@ -408,6 +408,71 @@ router.patch(
   }
 );
 
+// Bulk delete. Deliberately conservative about what it will remove: the
+// caller's own account and ADMIN accounts are always skipped (delete admins
+// one-by-one via DELETE /users/:id, where the "last admin must remain" check
+// applies). Built for sweeping out accumulated throwaway tester accounts.
+router.post(
+  "/users/bulk-delete",
+  authActionLimiter,
+  verifyToken,
+  requireRole("ADMIN"),
+  [
+    body("ids")
+      .isArray({ min: 1, max: 100 })
+      .withMessage("ids must be an array of 1-100 user ids"),
+    body("ids.*").isString().notEmpty(),
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          errors: errors.array(),
+        });
+      }
+
+      const requestedIds = [...new Set(req.body.ids)];
+
+      const deletable = await prisma.user.findMany({
+        where: {
+          id: { in: requestedIds },
+          role: { not: "ADMIN" },
+          NOT: { id: req.user.id },
+        },
+        select: { id: true },
+      });
+
+      const deletableIds = deletable.map((u) => u.id);
+
+      const { count: deletedCount } = deletableIds.length
+        ? await prisma.user.deleteMany({
+            where: { id: { in: deletableIds } },
+          })
+        : { count: 0 };
+
+      const skippedCount = requestedIds.length - deletedCount;
+
+      res.json({
+        message:
+          `Deleted ${deletedCount} user(s).` +
+          (skippedCount > 0
+            ? ` Skipped ${skippedCount} (admin accounts, your own account, or already removed).`
+            : ""),
+        deletedCount,
+        skippedCount,
+      });
+    } catch (error) {
+      console.log(error);
+
+      res.status(500).json({
+        message: "Internal server error",
+      });
+    }
+  }
+);
+
 router.delete(
   "/users/:id",
   authActionLimiter,

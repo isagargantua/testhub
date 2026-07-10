@@ -24,3 +24,12 @@ export async function deleteUser(id) {
 
   return response.data;
 }
+
+export async function bulkDeleteUsers(ids) {
+  const response = await client.post(
+    "/api/auth/users/bulk-delete",
+    { ids }
+  );
+
+  return response.data;
+}

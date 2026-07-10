@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
+  bulkDeleteUsers,
   deleteUser,
   getUsers,
   resetUserPassword,
@@ -11,6 +12,7 @@ import { SkeletonTableRows } from "../components/Skeleton";
 import EmptyState from "../components/EmptyState";
 import { useToast } from "../components/Toast";
 import { useConfirm } from "../components/ConfirmDialog";
+import { useAuth } from "../context/AuthContext";
 
 function formatDate(value) {
   return new Date(value).toLocaleString();
@@ -36,6 +38,7 @@ function getErrorMessage(error, fallback) {
 export default function Users() {
   const toast = useToast();
   const confirm = useConfirm();
+  const { user: me } = useAuth();
   const [users, setUsers] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -46,6 +49,8 @@ export default function Users() {
   const [newPassword, setNewPassword] = useState("Test@12345");
   const [submittingReset, setSubmittingReset] = useState(false);
   const [deletingId, setDeletingId] = useState("");
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const loadUsers = useCallback(async () => {
     try {
@@ -59,6 +64,8 @@ export default function Users() {
 
       setUsers(data.items);
       setPagination(data.pagination);
+      // Selection is per loaded page — a fresh list means a fresh selection.
+      setSelectedIds([]);
     } catch (err) {
       toast.error(getErrorMessage(err, "Could not load users right now."));
     } finally {
@@ -82,6 +89,66 @@ export default function Users() {
       pagination.page < pagination.pages,
     [pagination]
   );
+
+  // Bulk delete never touches ADMIN accounts or your own account (the backend
+  // enforces the same), so only the remaining rows are selectable.
+  const selectableUsers = useMemo(
+    () => users.filter((u) => u.role !== "ADMIN" && u.id !== me?.id),
+    [users, me]
+  );
+
+  const allSelected =
+    selectableUsers.length > 0 &&
+    selectableUsers.every((u) => selectedIds.includes(u.id));
+
+  function toggleSelect(id) {
+    setSelectedIds((current) =>
+      current.includes(id)
+        ? current.filter((item) => item !== id)
+        : [...current, id]
+    );
+  }
+
+  function toggleSelectAll() {
+    setSelectedIds(allSelected ? [] : selectableUsers.map((u) => u.id));
+  }
+
+  async function handleBulkDelete() {
+    const count = selectedIds.length;
+
+    const confirmed = await confirm({
+      title: `Delete ${count} selected user(s)?`,
+      message:
+        "This permanently removes the selected accounts and cannot be undone. " +
+        "Admin accounts and your own account are never included.",
+      confirmLabel: `Delete ${count} user(s)`,
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setBulkDeleting(true);
+
+      const result = await bulkDeleteUsers(selectedIds);
+
+      toast.success(result.message || `Deleted ${count} user(s).`);
+
+      // If we wiped every row on this page, step back a page instead of
+      // landing on an empty one.
+      if (selectedIds.length === users.length && page > 1) {
+        setPage((current) => current - 1);
+        return;
+      }
+
+      loadUsers();
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Could not delete the selected users."));
+    } finally {
+      setBulkDeleting(false);
+    }
+  }
 
   async function handleDelete(user) {
     const confirmed = await confirm({
@@ -187,10 +254,56 @@ export default function Users() {
       </div>
 
       <div className="card overflow-hidden">
+        {selectedIds.length > 0 && (
+          <div
+            className="mb-4 flex flex-col gap-3 rounded-[14px] border border-[rgba(168,80,63,0.18)] bg-[rgba(168,80,63,0.06)] px-4 py-3 md:flex-row md:items-center md:justify-between"
+            data-testid="bulk-action-bar"
+          >
+            <span className="text-sm font-semibold text-[#8b4335]">
+              {selectedIds.length} user(s) selected
+            </span>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setSelectedIds([])}
+              >
+                Clear selection
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                data-testid="bulk-delete"
+                disabled={bulkDeleting}
+                onClick={handleBulkDelete}
+              >
+                {bulkDeleting
+                  ? "Deleting..."
+                  : `Delete selected (${selectedIds.length})`}
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="overflow-x-auto">
           <table className="min-w-full text-left">
             <thead>
               <tr className="border-b border-[rgba(80,67,43,0.08)] text-xs uppercase tracking-[0.18em] text-[#7d6f60]">
+                <th className="w-12 px-4 py-4">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 cursor-pointer accent-[#8e3f31] disabled:cursor-not-allowed"
+                    data-testid="select-all-users"
+                    title={
+                      selectableUsers.length
+                        ? "Select all deletable users on this page"
+                        : "No deletable users on this page"
+                    }
+                    checked={allSelected}
+                    disabled={!selectableUsers.length || loading}
+                    onChange={toggleSelectAll}
+                  />
+                </th>
                 <th className="px-4 py-4 font-semibold">Name</th>
                 <th className="px-4 py-4 font-semibold">Email</th>
                 <th className="px-4 py-4 font-semibold">Role</th>
@@ -200,13 +313,30 @@ export default function Users() {
             </thead>
             <tbody>
               {loading ? (
-                <SkeletonTableRows rows={6} cols={5} />
+                <SkeletonTableRows rows={6} cols={6} />
               ) : users.length ? (
                 users.map((user) => (
                   <tr
                     key={user.id}
                     className="row-lift border-b border-[rgba(80,67,43,0.06)] align-top last:border-b-0"
                   >
+                    <td className="w-12 px-4 py-4">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 cursor-pointer accent-[#8e3f31] disabled:cursor-not-allowed disabled:opacity-35"
+                        data-testid="select-user"
+                        title={
+                          user.id === me?.id
+                            ? "You can't bulk-delete your own account"
+                            : user.role === "ADMIN"
+                            ? "Admin accounts can't be bulk-deleted"
+                            : `Select ${user.email}`
+                        }
+                        checked={selectedIds.includes(user.id)}
+                        disabled={user.role === "ADMIN" || user.id === me?.id}
+                        onChange={() => toggleSelect(user.id)}
+                      />
+                    </td>
                     <td className="px-4 py-4">
                       <div className="font-semibold text-[#2d241a]">
                         {user.name}
@@ -254,7 +384,7 @@ export default function Users() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="5">
+                  <td colSpan="6">
                     <EmptyState
                       title="No users found"
                       description="No accounts match the current filter. Try a different search."
