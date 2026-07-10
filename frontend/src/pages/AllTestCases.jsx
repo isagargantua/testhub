@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getAllTestCases, exportTestCases } from "../api/testcases";
 import { getProjects } from "../api/projects";
-import Badge from "../components/Badge";
 import Pagination from "../components/Pagination";
 import { SkeletonCards } from "../components/Skeleton";
 import EmptyState from "../components/EmptyState";

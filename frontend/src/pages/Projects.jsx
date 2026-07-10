@@ -71,7 +71,9 @@ export default function Projects() {
         setRefreshing(false);
       }
     },
-    []
+    // `toast` is a stable useMemo'd API from ToastProvider, so including it
+    // satisfies exhaustive-deps without re-creating the callback per render.
+    [toast]
   );
 
   useEffect(() => {

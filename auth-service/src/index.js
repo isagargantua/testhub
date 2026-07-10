@@ -14,7 +14,7 @@ app.use(cors());
 
 app.use(express.json());
 
-app.use(morgan("dev"));
+app.use(morgan(process.env.NODE_ENV === "production" ? "tiny" : "dev"));
 
 app.get("/health", (req, res) => {
   res.json({

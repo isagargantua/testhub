@@ -34,6 +34,9 @@ model Project {
 
   testSuites TestSuite[]
   testRuns   TestRun[]
+
+  // Every list/stat query filters by owner; Postgres doesn't index FKs itself.
+  @@index([createdById])
 }
 
 enum ProjectStatus {
@@ -51,6 +54,8 @@ model TestSuite {
   testCases TestCase[]
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
+
+  @@index([projectId])
 }
 
 model TestCase {
@@ -70,6 +75,8 @@ model TestCase {
   results   TestResult[]
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
+
+  @@index([suiteId])
 }
 
 enum Priority {
@@ -98,6 +105,8 @@ model TestRun {
   results   TestResult[]
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
+
+  @@index([projectId])
 }
 
 enum RunStatus {
@@ -119,7 +128,9 @@ model TestResult {
 
   executedAt DateTime @default(now())
 
+  // runId lookups ride the @@unique's leading column; testCaseId needs its own.
   @@unique([runId, testCaseId])
+  @@index([testCaseId])
 }
 
 enum ResultStatus {

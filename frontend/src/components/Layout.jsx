@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import Navbar from "./Navbar";
 import CommandPalette from "./CommandPalette";
+import { SkeletonCards } from "./Skeleton";
 
 export default function Layout() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -32,7 +33,11 @@ export default function Layout() {
             onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 4)}
           >
             <div key={location.pathname} className="route-fade">
-              <Outlet />
+              {/* Pages are lazy-loaded (see App.jsx); the skeleton shows only
+                  the first time a page's chunk is fetched. */}
+              <Suspense fallback={<SkeletonCards count={6} />}>
+                <Outlet />
+              </Suspense>
             </div>
           </main>
         </div>

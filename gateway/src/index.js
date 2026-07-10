@@ -57,7 +57,9 @@ app.use(
   })
 );
 
-app.use(morgan("dev"));
+// "dev" is colored + verbose for local work; "tiny" keeps production logs lean
+// (free-tier log storage and I/O are limited).
+app.use(morgan(process.env.NODE_ENV === "production" ? "tiny" : "dev"));
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });

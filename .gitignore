@@ -4,3 +4,6 @@ dist
 .env.local
 .env.*.local
 /.metadata/
+
+# IDE state
+.idea/
