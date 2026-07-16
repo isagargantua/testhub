@@ -119,10 +119,9 @@ testHub/
 │                              # SuiteDetail, TestRuns, RunDetail, Users,
 │                              # AllTestCases, Dump (File Storage)
 │
-├── automation/               # Test automation frameworks (practice deliverables)
-│   ├── selenium-testhub/      # Selenium 4 + TestNG, Page Object Model
-│   ├── playwright-testhub/    # Playwright for Java + TestNG, Page Object Model
-│   └── restassured-testhub/   # RestAssured + Jackson POJOs, Service Object Model
+├── automation/               # Test automation (practice deliverable)
+│   └── testhub-automation/    # Selenium 4 + TestNG + RestAssured, split by domain:
+│                              #   src/common (core) · src/api · src/ui · src/hybrid
 │
 ├── postman/                  # Postman smoke-test collection
 ├── .github/workflows/        # keep-warm.yml (pings /health to fight cold starts)

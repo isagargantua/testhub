@@ -5,8 +5,8 @@ cases → runs → results) built as a **practice target for QA automation** and
 full-stack learning project. React SPA + an Express API gateway proxying to two
 Node/Prisma microservices on PostgreSQL, deployed on free-tier Render + Vercel.
 
-It ships with three automation suites that test it: **RestAssured** (API),
-**Selenium**, and **Playwright** (UI).
+It ships with a Java/Selenium/TestNG/RestAssured automation suite that tests
+it end to end, UI and API alike.
 
 ## Quick links
 - 📐 **[Architecture & end-to-end overview](./intro/ARCHITECTURE.md)** — start here
@@ -22,7 +22,7 @@ gateway/        API gateway (Express + http-proxy + Swagger /docs)
 auth-service/   Identity: users, JWT, login/refresh (Express + Prisma)
 core-service/   Domain: projects/suites/cases/runs/results + dashboard (Express + Prisma)
 frontend/       React 19 + Vite + Tailwind SPA (light/dark theme)
-automation/     selenium-testhub · playwright-testhub · restassured-testhub
+automation/     testhub-automation — Selenium + TestNG + RestAssured (UI, API, hybrid)
 postman/        Postman smoke-test collection
 intro/          High-level: architecture, component deep-dives, build story, automation spec
 deep-dive/      Exhaustive, file-by-file walkthrough of the entire repo

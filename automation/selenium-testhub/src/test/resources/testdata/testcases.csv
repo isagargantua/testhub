@@ -1,5 +1,0 @@
-title,priority
-Login form accepts valid input,CRITICAL
-Logout clears the session,HIGH
-Sidebar navigates to Projects,MEDIUM
-Theme toggle persists across reloads,LOW

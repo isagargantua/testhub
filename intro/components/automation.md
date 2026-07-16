@@ -1,86 +1,114 @@
-# Component: Automation Frameworks
+# Component: Automation Framework
 
-**Path:** `automation/` · **Stack:** Java 17, Maven, TestNG
+**Path:** `automation/testhub-automation/` · **Stack:** Java 17, Maven, TestNG, Selenium 4, RestAssured
 
-Three independent automation frameworks that test testHub. They double as the
-project's reason for existing (a practice target) and as portfolio pieces.
+One framework that tests testHub end to end — UI and API alike. It doubles as
+the project's reason for existing (a practice target) and as a portfolio
+piece. Full run instructions live in
+[`automation/testhub-automation/RUNNING_TESTS.md`](../../automation/testhub-automation/RUNNING_TESTS.md);
+this page is the architecture summary.
 
-## 1. `selenium-testhub/` — UI, Page Object Model
-- Selenium 4.21 (Selenium Manager — no driver downloads), TestNG, ExtentReports,
-  Log4j2.
-- `DriverManager` (ThreadLocal), `DriverFactory` (chrome/firefox/edge, headless),
-  `BasePage` + `LoginPage`/`DashboardPage`/`ProjectsPage`.
-- Retry analyzer, screenshot-on-failure, service warm-up for cold starts.
-- Scenarios: login (valid/invalid, data-driven), logout, dashboard cards,
-  navigation, project create + delete (handles native confirm dialog).
+## Layout — split by domain, not by Maven's main/test
 
-## 2. `playwright-testhub/` — UI, Page Object Model
-- Playwright for Java 1.44 (auto-downloads browsers), TestNG, ExtentReports.
-- `PlaywrightFactory` (ThreadLocal Playwright/Browser/Context/Page),
-  chromium/firefox/webkit.
-- **Same scenarios as Selenium** so the two can be compared directly.
-- Native `confirm()` on delete handled with `page.onDialog(Dialog::accept)`.
+```
+testhub-automation/
+├── pom.xml
+└── src/
+    ├── common/   # shared core — config, driver, waits, reporting, listeners,
+    │             #   enums, test-data factory & data providers
+    ├── api/      # RestAssured ApiClient + POJO models + pure-API tests
+    │             #   (independent — never imports anything from ui/)
+    ├── ui/       # Page Objects + pure-UI tests (real login/register forms only)
+    ├── hybrid/   # API-assisted UI tests: seed/login over the API, verify via the UI
+    └── resources/# config.properties, TestNG suites, testdata, log4j2.xml
+```
 
-## 3. `restassured-testhub/` — API, Service Object Model + POJOs
-- RestAssured 5.4, Jackson 2.17, Lombok, TestNG, ExtentReports.
-- **Request/Response POJOs** for (de)serialization (`pojo/request`, `pojo/response`).
-- **Service objects** per API area (`AuthService`, `ProjectService`, …) return
-  RestAssured `Response`; tests own assertions + `response.as(Pojo.class)`.
-- `SpecFactory` builds base/authorized specs; `BaseTest` logs in once and reuses
-  the token; created data cleaned up in `@AfterClass`.
-- Scenarios: auth (login/refresh/me/validation), project CRUD, **pagination
-  clamping regression**, full end-to-end run flow (project→suite→cases→run→
-  result→CSV/JSON export→cascade delete), dashboard stats.
+The four code folders are registered as source roots by
+`build-helper-maven-plugin`, so packages stay plain (`com.testhub.*`) while
+the folders give the layer separation.
 
-## Common conventions
-- `src/test/resources/config.properties` holds `ui.base.url` / `api.base.url` +
-  admin credentials; every value is `-D` overridable.
-- TestNG groups `smoke` and `regression`; `testng.xml` (full) and
-  `testng-smoke.xml` (smoke) suites.
-- All three warm the free-tier services before running and retry transient
-  cold-start failures.
+## Where each layer authenticates (a design rule, not an accident)
+
+| Layer | How it signs in |
+|---|---|
+| `ui/` | **Through the browser only** — the real sign-up and login forms. Never the API. |
+| `api/` | Directly against the gateway with RestAssured. Never a browser. |
+| `hybrid/` | Logs in over the **API**, injects the session into `localStorage`, then asserts through the **UI**. The only place the two meet. |
+
+This is the opposite of "always API-login-and-inject" — pure-UI tests
+genuinely exercise the login/register forms, so a regression there gets
+caught by the layer meant to catch it.
+
+## Key pieces
+
+- `DriverManager` (ThreadLocal) + `DriverFactory` (chrome/firefox/edge,
+  headless, Selenium Manager — no driver downloads) → safe `parallel="classes"`.
+- `BasePage` — no implicit waits, no `Thread.sleep`; every interaction goes
+  through `WaitUtils` explicit conditions. `XPathUtil.quote()` escapes every
+  dynamic XPath literal, so Faker-generated names with apostrophes can't break
+  a locator.
+- `AuthPage` (shared by `LoginPage`/`RegisterPage`) owns the
+  "Services asleep? Wake them" flow, called once per suite.
+- `ConfirmDialogComponent` — the app's destructive actions (delete project,
+  delete user) go through a custom React confirm dialog, **not**
+  `window.confirm()`. Selenium's `alertIsPresent`/`Dialog` APIs do not fire
+  for it; interact with the dialog's own Delete/Cancel buttons.
+- `RetryAnalyzer` + `RetryTransformer` — one automatic retry per test
+  (`retry.count`, default `1`) absorbs a transient cold-start failure.
+- `ExtentManager` — thread-safe ExtentReports; Allure is wired in parallel
+  (`report.type=extent|allure|both`).
+
+## Scenarios covered
+
+| Layer | Tests |
+|---|---|
+| **UI** | Login (valid via form, invalid data-driven, empty), Register (happy path + 3 validations), Projects (create/delete/open), Dashboard (fresh-user KPIs), full **E2E** journey (register → project → suite → case → run → result → dashboard) |
+| **API** | Auth (register/login/negative/duplicate), the project → suite → case graph |
+| **Hybrid** | API-seeded projects verified on the dashboard; standing-tester API login verified in the Projects UI |
+
+## Cold starts & the register throttle
+
+testHub runs on free-tier Render + Vercel. HTTP 429s on the live deployment
+are Render's edge **rate-limiting requests routed to a hibernating service**
+(`x-render-routing: hibernate-rate-limited`) — not the app's own limiter
+(off by default, see `auth-service/src/middleware/rateLimiter.js`). The
+framework handles this itself rather than asking the runner to work around
+it:
+
+- Warm-up polls every service's own `/health` (`health.check.urls`) before
+  any real call — this is what actually wakes a hibernating container.
+- `ApiClient` retries a 429 up to 3 times with backoff (`Retry-After` aware).
+- UI tests default to `reuse.user=true` — signing in as the standing tester
+  through the form, never registering, so the throttle is never touched.
+- API tests that need a fresh account register once per test class, not per
+  method.
+
+Verified green against the live app (`https://mytesthub.vercel.app`):
+API 7/7, smoke 9/9, full regression 25/25 — zero retries needed.
 
 ## data-testid availability
 
-Login and Register pages **do** have `data-testid` attributes (added after the
-frameworks were initially written):
-
 | Element | data-testid |
 |---|---|
-| Login email | `login-email` |
-| Login password | `login-password` |
-| Login submit | `login-submit` |
-| Wake services button | `wake-services` |
-| Wake status message | `wake-status` |
-| Register name | `register-name` |
-| Register email | `register-email` |
-| Register password | `register-password` |
-| Register confirm | `register-confirm` |
-| Register submit | `register-submit` |
+| Login email / password / submit | `login-email` / `login-password` / `login-submit` |
+| Wake services button / status | `wake-services` / `wake-status` |
+| Register name / email / password / confirm / submit | `register-name` / `register-email` / `register-password` / `register-confirm` / `register-submit` |
+| Users: select-all / per-row checkbox / bulk delete | `select-all-users` / `select-user` / `bulk-delete` |
 
-All other pages (Dashboard, Projects, Users, Dump, etc.) do not yet have
-`data-testid` hooks — use role/label/visible-text selectors for those.
-
-## Key automation gotchas (from building the frameworks)
-
-- **Confirm dialogs are custom React modals, NOT `window.confirm`.** Playwright's
-  `page.onDialog()` does NOT fire. Selenium's `alertIsPresent` does NOT fire.
-  Interact with the modal's "Delete" / "Confirm" button directly.
-- **Cold starts on Render free tier** (~24–90 s on first wake). Always warm
-  services before the suite; use a retry analyzer for transient failures.
-- **Rate limiting on `/api/auth/register`** when run in bursts. Run user-creation
-  calls serially, not in parallel.
-- **First registered user = ADMIN.** Control test DB state or seed an admin
-  before running RBAC tests.
-- **Toast notifications** (not inline text) carry success/error feedback. Assert
-  the toast element, not an inline div.
-- **Sidebar may collapse** — if elements are off-screen, send `Ctrl+B` to expand.
+Other pages (Dashboard, Projects, Dump, etc.) don't yet have `data-testid`
+hooks — the framework locates those by stable `href`, label text, or scoped
+structural XPath (see `BasePage.fieldByLabel` / `buttonByText`).
 
 ## Run
+
 ```bash
-cd automation/<framework>
-# edit src/test/resources/config.properties first (URLs + credentials)
-mvn test                            # full regression
-mvn test -Dsuite=testng-smoke.xml   # smoke
+cd automation/testhub-automation
+mvn test               # default = regression (UI + API + hybrid)
+mvn test -Psmoke        # fast confidence check across every layer
+mvn test -Papi          # API only, no browser
 ```
-Reports: `reports/extent-report.html`. Each framework has its own README.
+
+Reports: `test-output/reports/Latest/Report-<timestamp>_<user>.html`
+(ExtentReports) and `target/allure-results/` (`mvn allure:serve`). Full
+walkthrough — including Eclipse and VS Code setup — in
+[`RUNNING_TESTS.md`](../../automation/testhub-automation/RUNNING_TESTS.md).
