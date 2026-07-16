@@ -14,8 +14,8 @@ this page is the architecture summary.
 testhub-automation/
 ├── pom.xml
 └── src/
-    ├── common/   # shared core — config, driver, waits, reporting, listeners,
-    │             #   enums, test-data factory & data providers
+    ├── framework/# reusable engine — config, driver, waits, reporting, listeners,
+    │             #   enums, test-data factory & data providers (no tests)
     ├── api/      # RestAssured ApiClient + POJO models + pure-API tests
     │             #   (independent — never imports anything from ui/)
     ├── ui/       # Page Objects + pure-UI tests (real login/register forms only)
@@ -62,7 +62,7 @@ caught by the layer meant to catch it.
 
 | Layer | Tests |
 |---|---|
-| **UI** | Login (valid via form, invalid data-driven, empty), Register (happy path + 3 validations), Projects (create/delete/open), Dashboard (fresh-user KPIs), full **E2E** journey (register → project → suite → case → run → result → dashboard) |
+| **UI** | Login, Register, Projects, Suites & Test Cases, Test Runs, Run Detail (mark + overwrite results), Test-Case Library (search/export/empty state), Users/admin (search, reset, single + **bulk delete**, select-all), Navigation & RBAC, Theme, Dashboard KPIs, and the full **E2E** journey (register → project → suite → case → run → result → dashboard) |
 | **API** | Auth (register/login/negative/duplicate), the project → suite → case graph |
 | **Hybrid** | API-seeded projects verified on the dashboard; standing-tester API login verified in the Projects UI |
 

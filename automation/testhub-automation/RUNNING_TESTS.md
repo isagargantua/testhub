@@ -114,6 +114,13 @@ always register fresh regardless.
 | `RegisterTest` | UI | `smoke`,`regression`,`auth` | New account registers + auto-signs-in; mismatched passwords, short password, missing name all rejected; nav back to login works |
 | `DashboardTest` | UI | `smoke`,`dashboard` | A brand-new user's KPI cards render at 0 |
 | `ProjectsTest` | UI | `smoke`,`regression`,`projects` | Project create (appears ACTIVE), delete (via the app's confirm dialog), open-detail |
+| `SuiteDetailTest` | UI | `regression`,`suites`,`testcases` | Create a test case in a suite (priority round-trips), then delete it |
+| `TestRunsTest` | UI | `regression`,`runs` | Create a run through the two-step wizard, then delete it |
+| `RunDetailTest` | UI | `regression`,`runs`,`results` | Mark a case PASS (summary tracks it), then overwrite to FAIL (upsert; PASS drops to 0) |
+| `AllTestCasesTest` | UI | `regression`,`library` | Fresh account shows the empty library; a UI-created case is findable by search + enables export |
+| `UsersTest` | UI (admin) | `regression`,`users` | Search, reset-password (verified by re-login), single delete, multi-select **bulk delete**, select-all bulk delete. Self-skips if the account isn't ADMIN |
+| `NavigationTest` | UI | `smoke`/`regression`,`navigation`,`rbac` | Sidebar routing; TESTER can't see the admin Users link; logout → /login; anonymous visitor redirected from a protected route |
+| `ThemeTest` | UI | `regression`,`theme` | Toggle flips `data-theme` and persists across a reload |
 | `EndToEndWorkflowTest` | UI/e2e | `smoke`,`e2e` | The whole product journey: register → project → suite → case → run → mark PASS → dashboard shows 1/1/100% |
 | `AuthApiTest` | API | `api`,`smoke`,`regression` | Register returns tokens+TESTER role; standing-user login works; wrong password → 401; duplicate register → 400 |
 | `ProjectApiTest` | API | `api`,`smoke`,`regression` | Project → suite → case graph builds over the API; delete works. One registered user per class |
@@ -221,7 +228,7 @@ mvn allure:report     # static HTML into target/site/allure-maven-plugin/
    *File → Import → Maven → Existing Maven Projects →* browse to
    `D:\AI-Testing\testHub\automation\testhub-automation` → Finish.
 3. Let the Maven build finish. The `build-helper-maven-plugin` registers the
-   four domain folders (`src/common/java`, `src/api/java`, `src/ui/java`,
+   four domain folders (`src/framework/java`, `src/api/java`, `src/ui/java`,
    `src/hybrid/java`) as source folders automatically — if they don't show as
    source folders, right-click the project → *Maven → Update Project…* (Alt+F5).
 

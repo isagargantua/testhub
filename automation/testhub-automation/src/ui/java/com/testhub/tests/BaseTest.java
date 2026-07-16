@@ -4,9 +4,12 @@ import com.testhub.config.ConfigManager;
 import com.testhub.constants.FrameworkConstants;
 import com.testhub.driver.DriverFactory;
 import com.testhub.driver.DriverManager;
+import com.testhub.enums.Priority;
 import com.testhub.listeners.TestListener;
 import com.testhub.pages.DashboardPage;
 import com.testhub.pages.LoginPage;
+import com.testhub.pages.ProjectDetailPage;
+import com.testhub.pages.ProjectsPage;
 import com.testhub.pages.RegisterPage;
 import com.testhub.reports.ExtentManager;
 import com.testhub.utils.ScreenshotUtils;
@@ -134,6 +137,23 @@ public abstract class BaseTest {
     /** Signs in as the configured ADMIN through the login form. */
     protected DashboardPage loginAsAdmin() {
         return loginViaUi(ConfigManager.adminEmail(), ConfigManager.adminPassword());
+    }
+
+    /**
+     * Builds a project → suite → test-case graph entirely through the UI
+     * (assumes already signed in), so focused tests for the deeper screens
+     * (Suites, Runs, Run detail, Library) don't each re-implement the setup.
+     *
+     * @return the created project's id (for opening its runs view)
+     */
+    protected String seedProjectSuiteCase(String projectName, String suiteName, String caseTitle) {
+        ProjectsPage projects = new ProjectsPage().open().createProject(projectName, "seeded via UI");
+        ProjectDetailPage detail = projects.openProject(projectName);
+        String projectId = detail.getProjectId();
+        detail.createSuite(suiteName, "seeded via UI");
+        detail.openSuite(suiteName).createTestCase(caseTitle, "seeded via UI",
+                TestDataFactory.steps(), TestDataFactory.expected(), Priority.HIGH);
+        return projectId;
     }
 
     private void wakeServicesOnce(com.testhub.pages.AuthPage authPage) {

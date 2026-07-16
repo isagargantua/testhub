@@ -121,7 +121,7 @@ testHub/
 │
 ├── automation/               # Test automation (practice deliverable)
 │   └── testhub-automation/    # Selenium 4 + TestNG + RestAssured, split by domain:
-│                              #   src/common (core) · src/api · src/ui · src/hybrid
+│                              #   src/framework (engine) · src/api · src/ui · src/hybrid
 │
 ├── postman/                  # Postman smoke-test collection
 ├── .github/workflows/        # keep-warm.yml (pings /health to fight cold starts)

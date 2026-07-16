@@ -15,14 +15,18 @@ The project is split **by domain**, not by Maven's usual `main` / `test`:
 testhub-automation/
 ├── pom.xml
 └── src/
-    ├── common/   # shared core — config, driver, waits, reporting, listeners,
-    │             #   enums, test-data factory & data providers
-    ├── api/      # the API layer: RestAssured ApiClient + POJO models + pure-API tests
-    │             #   (independent — never imports anything from ui/)
-    ├── ui/       # Page Objects + pure-UI tests (login is done through the real form)
-    ├── hybrid/   # exactly ONE test: logs in & seeds over the API, verifies via the UI
-    └── resources/# config.properties, TestNG suites, testdata, log4j2.xml
+    ├── framework/  # the reusable ENGINE — config, driver, waits, reporting,
+    │               #   listeners, enums, test-data factory & data providers.
+    │               #   No tests, nothing testHub-specific. (was: common/)
+    ├── api/        # the API layer: RestAssured ApiClient + POJO models + pure-API tests
+    │               #   (independent — never imports anything from ui/)
+    ├── ui/         # Page Objects + pure-UI tests (login is done through the real form)
+    ├── hybrid/     # API-assisted UI tests: seed/login over the API, verify via the UI
+    └── resources/  # config.properties, TestNG suites, testdata, log4j2.xml
 ```
+
+Each `src/` subfolder has its own short `README.md` explaining what belongs
+there.
 
 The four code folders are wired in as source roots by `build-helper-maven-plugin`,
 so packages stay plain (`com.testhub.*`) while the folders give you the separation.
@@ -37,6 +41,11 @@ so packages stay plain (`com.testhub.*`) while the folders give you the separati
 
 So a pure-UI login test lives in `ui/` and drives the form; the API-assisted
 tests are unmistakable — they sit by themselves in `hybrid/`.
+
+> **Why "hybrid"?** A hybrid test combines two layers in one flow: it uses the
+> fast **API** to reach the state it wants (register a user, seed two projects),
+> then switches to the **browser** to prove the UI reflects that state. It's the
+> shortcut for "I need to verify a screen that normally takes six clicks to reach."
 
 ### Fresh vs existing user
 
@@ -126,7 +135,7 @@ too when `screenshot.on.success=true`). Other artifacts: `test-output/screenshot
 
 | Layer | Tests |
 |-------|-------|
-| **UI** (`ui/`) | Login (valid via form, invalid data-driven, empty), Register (happy path + validations), Projects (create / delete / open), Dashboard (fresh-user KPIs), and a full **E2E** journey register → project → suite → case → run → result → dashboard |
+| **UI** (`ui/`) | Login (valid via form, invalid data-driven, empty), Register (happy path + validations), Projects (create / delete / open), Suites & Test Cases (create + delete, priority round-trip), Test Runs (wizard create + delete), Run Detail (mark result + overwrite), Test-Case Library (empty state, search, export), Users/admin (search, reset password, single + **bulk delete**, select-all), Navigation & RBAC (sidebar routing, admin-only links, logout, protected-route redirect), Theme (toggle + persist), Dashboard (fresh-user KPIs), and a full **E2E** journey register → project → suite → case → run → result → dashboard |
 | **API** (`api/`) | Auth (register/login/negative/duplicate) and the project → suite → case graph |
 | **Hybrid** (`hybrid/`) | API login + API-seeded projects, verified on the dashboard through the UI |
 
